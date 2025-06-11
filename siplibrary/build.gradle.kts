@@ -1,10 +1,11 @@
 plugins {
     id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.android") version "1.9.20"
     id("kotlin-parcelize")
     id("maven-publish")
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.10" // O la versión de Kotlin que uses
+    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.20"
 }
+
 
 android {
     namespace = "com.eddyslarez.siplibrary"
@@ -56,6 +57,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.20")
 
     implementation("com.shepeliev:webrtc-kmp:0.125.9")
     implementation("org.java-websocket:Java-WebSocket:1.5.4")
