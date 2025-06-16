@@ -56,7 +56,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.20")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
 
     implementation("com.shepeliev:webrtc-kmp:0.125.9")
     implementation("org.java-websocket:Java-WebSocket:1.5.4")
