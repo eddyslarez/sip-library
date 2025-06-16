@@ -39,7 +39,8 @@ class SipCoreManager private constructor(
     val platformInfo: PlatformInfo,
     val settingsDataStore: SettingsDataStore,
 ) {
-    
+    private var sipCallbacks: EddysSipLibrary.SipCallbacks? = null
+
     val callHistoryManager = CallHistoryManager()
     private var registrationState = RegistrationState.NONE
     private val activeAccounts = HashMap<String, AccountInfo>()
@@ -97,6 +98,10 @@ class SipCoreManager private constructor(
         setupWebRtcEventListener()
         setupPlatformLifecycleObservers()
         startConnectionHealthCheck()
+    }
+
+    fun setCallbacks(callbacks: EddysSipLibrary.SipCallbacks) {
+        this.sipCallbacks = callbacks
     }
 
     private fun setupWebRtcEventListener() {
