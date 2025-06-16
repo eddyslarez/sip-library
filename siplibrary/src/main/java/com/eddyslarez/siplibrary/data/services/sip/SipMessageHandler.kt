@@ -634,6 +634,8 @@ class SipMessageHandler(private val sipCoreManager: SipCoreManager) {
     }
 
     private fun sendAuthenticatedRegister(accountInfo: AccountInfo) {
+        log.d(tag = TAG) { "accountInfo: ${accountInfo.authorizationHeader}" }
+
         sendSipMessage(
             messageBuilder = { SipMessageBuilder.buildAuthenticatedRegisterMessage(accountInfo, sipCoreManager.isAppInBackground) },
             messageType = "authenticated REGISTER",
