@@ -271,15 +271,15 @@ println(healthReport)
 ```kotlin
 // Configurar diferentes servidores según el dominio
 val config = EddysSipLibrary.SipConfig(
-    defaultDomain = "mcn.ru",
-    webSocketUrl = "wss://webrtc.mcn.ru:35060/"
+    defaultDomain = "dominio",
+    webSocketUrl = "wss://dominio:XXXXXX/"
 )
 
-// También soporta kompaas.tech automáticamente
+// registro
 sipLibrary.registerAccount(
     username = "usuario",
     password = "contraseña",
-    domain = "kompaas.tech"
+    domain = "dominio"
 )
 ```
 
