@@ -485,8 +485,10 @@ class SipMessageHandler(private val sipCoreManager: SipCoreManager) {
             log.d(tag = TAG) { "Method: $method" }
 
             val authData = AuthenticationHandler.extractAuthenticationData(lines) ?: return
-            val authResponse = AuthenticationHandler.calculateAuthResponse(accountInfo, authData, method)
+            log.d(tag = TAG) { "authData: $authData" }
 
+            val authResponse = AuthenticationHandler.calculateAuthResponse(accountInfo, authData, method)
+            log.d(tag = TAG) { "authResponse: $authResponse" }
             AuthenticationHandler.updateAccountAuthInfo(accountInfo, authData, authResponse, method)
 
             when (method) {
