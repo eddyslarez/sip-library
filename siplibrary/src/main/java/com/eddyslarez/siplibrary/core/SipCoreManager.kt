@@ -39,7 +39,7 @@ class SipCoreManager private constructor(
     val platformInfo: PlatformInfo,
     val settingsDataStore: SettingsDataStore,
 ) {
-    private var eventListener: EddysSipLibrary.SipEventListener? = null
+    internal var eventListener: EddysSipLibrary.SipEventListener? = null
     private var internalCallbacks: EddysSipLibrary.SipInternalCallbacks? = null
 
     val callHistoryManager = CallHistoryManager()

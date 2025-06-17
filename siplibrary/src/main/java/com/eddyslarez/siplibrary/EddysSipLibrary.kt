@@ -12,7 +12,10 @@ import com.eddyslarez.siplibrary.utils.CallStateManager
 import com.eddyslarez.siplibrary.utils.RegistrationStateManager
 import com.eddyslarez.siplibrary.utils.log
 import kotlinx.coroutines.flow.Flow
-
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ProcessLifecycleOwner
+import java.time.Clock // o import android.os.SystemClock
 
 /**
  * EddysSipLibrary - Biblioteca SIP/VoIP para Android
@@ -429,7 +432,7 @@ class EddysSipLibrary private constructor() {
             audioDiagnosis = sipCoreManager?.webRtcManager?.diagnoseAudioIssues() ?: "Audio not available",
             webSocketStatus = sipCoreManager?.getWebSocketStatus() ?: "WebSocket not available",
             configuration = config,
-            timestamp = Clock.System.now().toEpochMilliseconds()
+            timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
         )
     }
 
