@@ -402,7 +402,7 @@ object SipMessageBuilder {
     /**
      * Build generic OK responses for requests
      */
-    private fun buildGenericOkResponse(lines: List<String>): String {
+    internal fun buildGenericOkResponse(lines: List<String>): String {
         val viaHeader = SipMessageParser.extractHeader(lines, "Via")
         val fromHeader = SipMessageParser.extractHeader(lines, "From")
         val toHeader = SipMessageParser.extractHeader(lines, "To")

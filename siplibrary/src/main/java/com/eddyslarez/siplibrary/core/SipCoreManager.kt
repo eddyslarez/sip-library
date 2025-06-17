@@ -88,6 +88,20 @@ class SipCoreManager private constructor(
         }
     }
 
+    /**
+     * Verifica si hay una llamada activa
+     */
+    fun hasActiveCall(): Boolean {
+        return callState != CallState.NONE && callState != CallState.ENDED
+    }
+
+    /**
+     * Verifica si la llamada está conectada
+     */
+    fun isCallConnected(): Boolean {
+        return callState == CallState.CONNECTED
+    }
+
     // ===================== CONFIGURACIÓN Y INICIALIZACIÓN =====================
 
     fun updateConfiguration(newConfig: EddysSipLibrary.SipConfig) {
