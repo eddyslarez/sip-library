@@ -302,6 +302,9 @@ class SipCoreManager private constructor(
                 if (config.ringtoneConfig.enableIncomingRingtone) {
                     ringtoneManager.playIncomingRingtone()
                 }
+                eventDispatcher.onIncomingCall(currentAccountInfo?.currentCallData?.from ?: "", null,
+                    currentAccountInfo?.currentCallData?.callId ?: ""
+                )
 
                 // Auto-accept si está configurado
                 if (config.autoAcceptDelay > 0) {
