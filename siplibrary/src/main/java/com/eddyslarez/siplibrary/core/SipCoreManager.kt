@@ -173,6 +173,7 @@ class SipCoreManager private constructor(
             StateManager.registrationStateFlow.collect { state ->
                 log.d(tag = TAG) { "State monitor detected registration state: $state" }
                 val currentAccount = getCurrentUsername() ?: "unknown"
+                eventDispatcher.onRegistrationStateChanged(state, currentAccount)
                 handleRegistrationStateChange(state, currentAccount)
             }
         }
