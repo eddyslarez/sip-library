@@ -926,7 +926,7 @@ class SipCoreManager private constructor(
         uiScope.cancel()
     }
 
-    fun getMessageHandler(): SipMessageHandler = messageHandler
+//    fun getMessageHandler(): SipMessageHandler = messageHandler
 }
 
 // Data class para configuración de ringtone
