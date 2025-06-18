@@ -510,7 +510,7 @@ limitations under the License.
 ## 👨‍💻 Autor
 
 **Eddys Larez**
-- Email: eddyslarez@example.com
+- Email: eddyslarez@gmail.com
 - GitHub: [@eddyslarez](https://github.com/eddyslarez)
 
 ---

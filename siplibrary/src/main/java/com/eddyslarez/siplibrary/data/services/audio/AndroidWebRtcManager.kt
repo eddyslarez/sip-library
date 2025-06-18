@@ -15,7 +15,7 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import com.eddyslarez.siplibrary.data.models.AccountInfo
 import com.eddyslarez.siplibrary.data.models.CallState
-import com.eddyslarez.siplibrary.utils.CallStateManager
+import com.eddyslarez.siplibrary.utils.StateManager
 import com.eddyslarez.siplibrary.utils.log
 import com.shepeliev.webrtckmp.AudioStreamTrack
 import com.shepeliev.webrtckmp.PeerConnection
@@ -1136,7 +1136,7 @@ class AndroidWebRtcManager(private val application: Application) : WebRtcManager
             when (state) {
                 PeerConnectionState.Connected -> {
                     log.d(tag = TAG) { "Call active: Connected" }
-                    CallStateManager.updateCallState(CallState.CONNECTED)
+                    StateManager.updateCallState(CallState.CONNECTED)
                     // Ensure audio is enabled when connected and microphone is not muted
                     setAudioEnabled(true)
                     audioManager?.isMicrophoneMute = false
@@ -1145,7 +1145,7 @@ class AndroidWebRtcManager(private val application: Application) : WebRtcManager
                 PeerConnectionState.Disconnected,
                 PeerConnectionState.Failed,
                 PeerConnectionState.Closed -> {
-                    CallStateManager.updateCallState(CallState.ENDED)
+                    StateManager.updateCallState(CallState.ENDED)
                     log.d(tag = TAG) { "Call ended" }
                     // Release audio focus when call ends
                     releaseAudioFocus()
