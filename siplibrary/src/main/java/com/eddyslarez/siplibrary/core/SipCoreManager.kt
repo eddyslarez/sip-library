@@ -158,53 +158,97 @@ class SipCoreManager private constructor(
             }
         }
     }
-
     private fun startStateMonitoring() {
-        // Monitor call state changes
+        // Monitor call state changes - CORREGIDO
         coreScope.launch {
             StateManager.callStateFlow.collect { newState ->
-                val oldState = StateManager.getCurrentCallState()
-                if (oldState != newState) {
-                    val callId = StateManager.getCurrentCallId()
-                    eventDispatcher.onCallStateChanged(oldState, newState, callId)
-                    handleCallStateChange(oldState, newState, callId)
-                }
+                // Ya no hay loop infinito porque no llamamos updateCallState aquí
+                log.d(tag = TAG) { "State monitor detected call state: $newState" }
+                handleCallStateChangeEffects(newState)
             }
         }
 
         // Monitor registration state changes
         coreScope.launch {
             StateManager.registrationStateFlow.collect { state ->
+                log.d(tag = TAG) { "State monitor detected registration state: $state" }
                 val currentAccount = getCurrentUsername() ?: "unknown"
-                eventDispatcher.onRegistrationStateChanged(state, currentAccount)
                 handleRegistrationStateChange(state, currentAccount)
             }
         }
 
-        // Monitor audio state changes
+        // Monitor caller number changes - NUEVO
         coreScope.launch {
-            StateManager.audioStateFlow.collect { audioState ->
-                // Handle audio state changes
-                if (audioState.currentInputDevice != null && audioState.currentOutputDevice != null) {
-                    eventDispatcher.onAudioDeviceChanged(null, audioState.currentOutputDevice!!)
+            StateManager.callerNumberFlow.collect { number ->
+                if (number.isNotEmpty()) {
+                    log.d(tag = TAG) { "Caller number updated: $number" }
                 }
             }
         }
 
-        // Monitor ringtone state
+        // Monitor call duration - NUEVO
         coreScope.launch {
-            StateManager.ringtoneStateFlow.collect { ringtoneState ->
-                if (!ringtoneState.isEnabled && ringtoneState.isIncomingPlaying) {
-                    ringtoneManager.stopIncomingRingtone()
-                }
-                if (!ringtoneState.isEnabled && ringtoneState.isOutgoingPlaying) {
-                    ringtoneManager.stopOutgoingRingtone()
+            StateManager.callDurationFlow.collect { duration ->
+                if (duration > 0) {
+                    // Actualizar estadísticas de llamada cada 5 segundos
+                    if (duration % 5000 == 0L) {
+                        updateCallStatistics()
+                    }
                 }
             }
         }
     }
 
-    private suspend fun handleCallStateChange(oldState: CallState, newState: CallState, callId: String) {
+//    private fun startStateMonitoring() {
+//        // Monitor call state changes
+//        coreScope.launch {
+//            StateManager.callStateFlow.collect { newState ->
+//                val oldState = StateManager.getCurrentCallState()
+//                if (oldState != newState) {
+//                    val callId = StateManager.getCurrentCallId()
+//                    eventDispatcher.onCallStateChanged(oldState, newState, callId)
+//                    handleCallStateChange(oldState, newState, callId)
+//                }
+//            }
+//        }
+//
+//        // Monitor registration state changes
+//        coreScope.launch {
+//            StateManager.registrationStateFlow.collect { state ->
+//                val currentAccount = getCurrentUsername() ?: "unknown"
+//                eventDispatcher.onRegistrationStateChanged(state, currentAccount)
+//                handleRegistrationStateChange(state, currentAccount)
+//            }
+//        }
+//
+//        // Monitor audio state changes
+//        coreScope.launch {
+//            StateManager.audioStateFlow.collect { audioState ->
+//                // Handle audio state changes
+//                if (audioState.currentInputDevice != null && audioState.currentOutputDevice != null) {
+//                    eventDispatcher.onAudioDeviceChanged(null, audioState.currentOutputDevice!!)
+//                }
+//            }
+//        }
+//
+//        // Monitor ringtone state
+//        coreScope.launch {
+//            StateManager.ringtoneStateFlow.collect { ringtoneState ->
+//                if (!ringtoneState.isEnabled && ringtoneState.isIncomingPlaying) {
+//                    ringtoneManager.stopIncomingRingtone()
+//                }
+//                if (!ringtoneState.isEnabled && ringtoneState.isOutgoingPlaying) {
+//                    ringtoneManager.stopOutgoingRingtone()
+//                }
+//            }
+//        }
+//    }
+
+    private suspend fun handleCallStateChange(
+        oldState: CallState,
+        newState: CallState,
+        callId: String
+    ) {
         when (newState) {
             CallState.CONNECTED -> {
                 eventDispatcher.onCallConnected(callId, calculateCallDuration())
@@ -212,6 +256,7 @@ class SipCoreManager private constructor(
                 // Detener ringtones cuando se conecta
                 ringtoneManager.stopAllRingtones()
             }
+
             CallState.ENDED -> {
                 val duration = calculateCallDuration()
                 eventDispatcher.onCallDisconnected(
@@ -223,6 +268,7 @@ class SipCoreManager private constructor(
                 // Detener ringtones cuando termina
                 ringtoneManager.stopAllRingtones()
             }
+
             CallState.INCOMING -> {
                 val callerNumber = StateManager.getCurrentCallerNumber()
                 eventDispatcher.onIncomingCall(callerNumber, null, callId)
@@ -231,18 +277,73 @@ class SipCoreManager private constructor(
                     ringtoneManager.playIncomingRingtone()
                 }
             }
+
             CallState.CALLING, CallState.OUTGOING -> {
                 // Reproducir ringtone de salida
                 if (config.ringtoneConfig.enableOutgoingRingtone) {
                     ringtoneManager.playOutgoingRingtone()
                 }
             }
+
             CallState.RINGING -> {
                 // Detener ringtone de salida cuando empieza a sonar
                 ringtoneManager.stopOutgoingRingtone()
             }
+
             else -> {}
         }
+    }
+
+    private suspend fun handleCallStateChangeEffects(newState: CallState) {
+        when (newState) {
+            CallState.INCOMING -> {
+                // Reproducir ringtone de entrada
+                if (config.ringtoneConfig.enableIncomingRingtone) {
+                    ringtoneManager.playIncomingRingtone()
+                }
+
+                // Auto-accept si está configurado
+                if (config.autoAcceptDelay > 0) {
+                    delay(config.autoAcceptDelay)
+                    if (StateManager.getCurrentCallState() == CallState.INCOMING) {
+                        acceptCall()
+                    }
+                }
+            }
+
+            CallState.CALLING, CallState.OUTGOING -> {
+                // Reproducir ringtone de salida
+                if (config.ringtoneConfig.enableOutgoingRingtone) {
+                    ringtoneManager.playOutgoingRingtone()
+                }
+            }
+
+            CallState.CONNECTED -> {
+                // Detener todos los ringtones
+                ringtoneManager.stopAllRingtones()
+                startCallStatisticsMonitoring()
+            }
+
+            CallState.ENDED, CallState.DECLINED -> {
+                // Detener ringtones y limpiar
+                ringtoneManager.stopAllRingtones()
+                stopCallStatisticsMonitoring()
+                clearCallData()
+            }
+
+            CallState.RINGING -> {
+                // Detener ringtone de salida cuando empieza a sonar del otro lado
+                ringtoneManager.stopOutgoingRingtone()
+            }
+
+            else -> {}
+        }
+    }
+
+    private fun clearCallData() {
+        StateManager.updateCallerNumber("")
+        StateManager.updateCallId("")
+        callStatistics = null
     }
 
     private suspend fun handleRegistrationStateChange(state: RegistrationState, account: String) {
@@ -250,9 +351,11 @@ class SipCoreManager private constructor(
             RegistrationState.OK -> {
                 eventDispatcher.onRegistrationSuccess(account, config.registrationExpiresSeconds)
             }
+
             RegistrationState.FAILED -> {
                 eventDispatcher.onRegistrationFailed(account, "Registration failed")
             }
+
             else -> {}
         }
     }
@@ -295,6 +398,7 @@ class SipCoreManager private constructor(
                         }
                         refreshAllRegistrationsWithNewUserAgent()
                     }
+
                     AppLifecycleEvent.EnterForeground -> {
                         StateManager.updateAppState(EddysSipLibrary.AppState.FOREGROUND)
                         if (config.autoExitPushOnForeground) {
@@ -302,6 +406,7 @@ class SipCoreManager private constructor(
                         }
                         refreshAllRegistrationsWithNewUserAgent()
                     }
+
                     else -> {}
                 }
             }
@@ -309,18 +414,25 @@ class SipCoreManager private constructor(
     }
 
     // Implementación de CallManager interface
-    override suspend fun makeCall(phoneNumber: String, username: String, domain: String, customHeaders: Map<String, String>) {
+    override suspend fun makeCall(
+        phoneNumber: String,
+        username: String,
+        domain: String,
+        customHeaders: Map<String, String>
+    ) {
         val accountKey = "$username@$domain"
         val accountInfo = activeAccounts[accountKey] ?: return
         currentAccountInfo = accountInfo
 
         if (!accountInfo.isRegistered) {
             log.d(tag = TAG) { "Error: Not registered with SIP server" }
-            eventDispatcher.onError(EddysSipLibrary.SipError(
-                code = 1004,
-                message = "Not registered with SIP server",
-                category = EddysSipLibrary.ErrorCategory.SIP_PROTOCOL
-            ))
+            eventDispatcher.onError(
+                EddysSipLibrary.SipError(
+                    code = 1004,
+                    message = "Not registered with SIP server",
+                    category = EddysSipLibrary.ErrorCategory.SIP_PROTOCOL
+                )
+            )
             return
         }
 
@@ -358,7 +470,8 @@ class SipCoreManager private constructor(
 
         if (callData.direction != CallDirections.INCOMING ||
             (StateManager.getCurrentCallState() != CallState.INCOMING &&
-                    StateManager.getCurrentCallState() != CallState.RINGING)) {
+                    StateManager.getCurrentCallState() != CallState.RINGING)
+        ) {
             return
         }
 
@@ -386,7 +499,11 @@ class SipCoreManager private constructor(
             StateManager.updateCallState(CallState.ACCEPTING)
         } catch (e: Exception) {
             log.e(tag = TAG) { "Error accepting call: ${e.message}" }
-            eventDispatcher.onCallFailed(callData.callId, "Failed to accept call: ${e.message}", 1006)
+            eventDispatcher.onCallFailed(
+                callData.callId,
+                "Failed to accept call: ${e.message}",
+                1006
+            )
             declineCall()
         }
     }
@@ -397,7 +514,8 @@ class SipCoreManager private constructor(
 
         if (callData.direction != CallDirections.INCOMING ||
             (StateManager.getCurrentCallState() != CallState.INCOMING &&
-                    StateManager.getCurrentCallState() != CallState.RINGING)) {
+                    StateManager.getCurrentCallState() != CallState.RINGING)
+        ) {
             return
         }
 
@@ -435,10 +553,12 @@ class SipCoreManager private constructor(
                 messageHandler.sendBye(accountInfo, callData)
                 callHistoryManager.addCallLog(callData, CallTypes.SUCCESS, endTime)
             }
+
             CallState.CALLING, CallState.RINGING, CallState.OUTGOING -> {
                 messageHandler.sendCancel(accountInfo, callData)
                 callHistoryManager.addCallLog(callData, CallTypes.ABORTED, endTime)
             }
+
             else -> {}
         }
 
@@ -507,7 +627,9 @@ class SipCoreManager private constructor(
     }
 
     override fun getCurrentCallState(): CallState = StateManager.getCurrentCallState()
-    override fun hasActiveCall(): Boolean = getCurrentCallState() != CallState.NONE && getCurrentCallState() != CallState.ENDED
+    override fun hasActiveCall(): Boolean =
+        getCurrentCallState() != CallState.NONE && getCurrentCallState() != CallState.ENDED
+
     override fun isCallConnected(): Boolean = getCurrentCallState() == CallState.CONNECTED
 
     // Métodos públicos adicionales
@@ -569,7 +691,10 @@ class SipCoreManager private constructor(
         activeAccounts.values.forEach { accountInfo ->
             if (accountInfo.isRegistered) {
                 accountInfo.userAgent = userAgent()
-                messageHandler.sendRegister(accountInfo, StateManager.getCurrentAppState() == EddysSipLibrary.AppState.BACKGROUND)
+                messageHandler.sendRegister(
+                    accountInfo,
+                    StateManager.getCurrentAppState() == EddysSipLibrary.AppState.BACKGROUND
+                )
             }
         }
     }
@@ -610,11 +735,13 @@ class SipCoreManager private constructor(
                 accountInfo.webSocketClient = newWebSocketClient
             } catch (e: Exception) {
                 log.e(tag = TAG) { "Error during reconnection: ${e.message}" }
-                eventDispatcher.onError(EddysSipLibrary.SipError(
-                    code = 1002,
-                    message = "Reconnection failed: ${e.message}",
-                    category = EddysSipLibrary.ErrorCategory.NETWORK
-                ))
+                eventDispatcher.onError(
+                    EddysSipLibrary.SipError(
+                        code = 1002,
+                        message = "Reconnection failed: ${e.message}",
+                        category = EddysSipLibrary.ErrorCategory.NETWORK
+                    )
+                )
             } finally {
                 reconnectionInProgress = false
             }
@@ -794,11 +921,13 @@ class SipCoreManager private constructor(
         } catch (e: Exception) {
             StateManager.updateRegistrationState(RegistrationState.FAILED)
             coreScope.launch {
-                eventDispatcher.onError(EddysSipLibrary.SipError(
-                    code = 1001,
-                    message = "Registration error: ${e.message}",
-                    category = EddysSipLibrary.ErrorCategory.AUTHENTICATION
-                ))
+                eventDispatcher.onError(
+                    EddysSipLibrary.SipError(
+                        code = 1001,
+                        message = "Registration error: ${e.message}",
+                        category = EddysSipLibrary.ErrorCategory.AUTHENTICATION
+                    )
+                )
             }
             throw Exception("Registration error: ${e.message}")
         }
@@ -845,7 +974,10 @@ class SipCoreManager private constructor(
                 coreScope.launch {
                     eventDispatcher.onWebSocketStateChanged(true, config.webSocketUrl)
                 }
-                messageHandler.sendRegister(accountInfo, StateManager.getCurrentAppState() == EddysSipLibrary.AppState.BACKGROUND)
+                messageHandler.sendRegister(
+                    accountInfo,
+                    StateManager.getCurrentAppState() == EddysSipLibrary.AppState.BACKGROUND
+                )
             }
 
             override fun onMessage(message: String) {
@@ -871,11 +1003,13 @@ class SipCoreManager private constructor(
                 StateManager.updateRegistrationState(RegistrationState.FAILED)
                 coreScope.launch {
                     eventDispatcher.onWebSocketStateChanged(false, config.webSocketUrl)
-                    eventDispatcher.onError(EddysSipLibrary.SipError(
-                        code = 1003,
-                        message = "WebSocket error: ${error.message}",
-                        category = EddysSipLibrary.ErrorCategory.NETWORK
-                    ))
+                    eventDispatcher.onError(
+                        EddysSipLibrary.SipError(
+                            code = 1003,
+                            message = "WebSocket error: ${error.message}",
+                            category = EddysSipLibrary.ErrorCategory.NETWORK
+                        )
+                    )
                 }
                 handleConnectionError(accountInfo, error)
             }
@@ -887,7 +1021,10 @@ class SipCoreManager private constructor(
             override fun onRegistrationRenewalRequired(accountKey: String) {
                 val account = activeAccounts[accountKey]
                 if (account != null && account.webSocketClient?.isConnected() == true) {
-                    messageHandler.sendRegister(account, StateManager.getCurrentAppState() == EddysSipLibrary.AppState.BACKGROUND)
+                    messageHandler.sendRegister(
+                        account,
+                        StateManager.getCurrentAppState() == EddysSipLibrary.AppState.BACKGROUND
+                    )
                 } else {
                     account?.let { reconnectAccount(it) }
                 }
@@ -910,6 +1047,7 @@ class SipCoreManager private constructor(
             error.message?.contains("timeout") == true -> {
                 reconnectAccount(accountInfo)
             }
+
             else -> {
                 reconnectAccount(accountInfo)
             }

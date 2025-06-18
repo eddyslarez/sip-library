@@ -7,6 +7,9 @@ import com.eddyslarez.siplibrary.data.services.audio.AudioDevice
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.Timer
+import java.util.TimerTask
+
 //
 ///**
 // * Gestores de estado para llamadas y registro
@@ -73,7 +76,9 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object StateManager {
     private val TAG = "StateManager"
-
+    // NUEVO: Timer para duración de llamada
+    private var callDurationTimer: Timer? = null
+    private var callStartTime: Long = 0
     // Call State
     private val _callStateFlow = MutableStateFlow(CallState.NONE)
     val callStateFlow: StateFlow<CallState> = _callStateFlow.asStateFlow()
@@ -120,8 +125,52 @@ object StateManager {
 
     // Call State Methods
     fun updateCallState(newState: CallState) {
-        log.d(tag = TAG) { "Call state changed: ${_callStateFlow.value} -> $newState" }
+        val oldState = _callStateFlow.value
+        log.d(tag = TAG) { "Call state changing: $oldState -> $newState" }
+
+        // Actualizar estado
         _callStateFlow.value = newState
+
+        // Manejar lógica específica de estados
+        when (newState) {
+            CallState.INCOMING -> {
+                // NO estaba manejando correctamente llamadas entrantes
+                startCallDurationTimer()
+                log.d(tag = TAG) { "Incoming call detected - timer started" }
+            }
+            CallState.CONNECTED -> {
+                if (oldState == CallState.INCOMING || oldState == CallState.CALLING) {
+                    startCallDurationTimer()
+                }
+                log.d(tag = TAG) { "Call connected - timer active" }
+            }
+            CallState.ENDED, CallState.DECLINED-> {
+                stopCallDurationTimer()
+                log.d(tag = TAG) { "Call ended - timer stopped" }
+            }
+            else -> {
+                log.d(tag = TAG) { "Call state: $newState" }
+            }
+        }
+    }
+    // NUEVO: Sistema de timer para duración
+    private fun startCallDurationTimer() {
+        stopCallDurationTimer() // Detener timer anterior si existe
+        callStartTime = System.currentTimeMillis()
+
+        callDurationTimer = Timer().apply {
+            schedule(object : TimerTask() {
+                override fun run() {
+                    val duration = System.currentTimeMillis() - callStartTime
+                    _callDurationFlow.value = duration
+                }
+            }, 0, 1000)
+        }
+    }
+
+    private fun stopCallDurationTimer() {
+        callDurationTimer?.cancel()
+        callDurationTimer = null
     }
 
     fun updateCallerNumber(number: String) {
