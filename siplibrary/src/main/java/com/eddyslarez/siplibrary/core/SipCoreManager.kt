@@ -3,8 +3,13 @@ package com.eddyslarez.siplibrary.core
 import android.app.Application
 import android.content.Context
 import com.eddyslarez.siplibrary.EddysSipLibrary
+import com.eddyslarez.siplibrary.ErrorCategory
+import com.eddyslarez.siplibrary.NetworkQuality
+import com.eddyslarez.siplibrary.SipError
+import com.eddyslarez.siplibrary.SipEventListener
 import com.eddyslarez.siplibrary.data.models.*
 import com.eddyslarez.siplibrary.data.services.audio.AudioDevice
+import com.eddyslarez.siplibrary.data.services.audio.AudioDeviceType
 import com.eddyslarez.siplibrary.data.services.audio.CallHoldManager
 import com.eddyslarez.siplibrary.data.services.audio.PlayRingtoneUseCase
 import com.eddyslarez.siplibrary.data.services.audio.WebRtcConnectionState
@@ -15,6 +20,8 @@ import com.eddyslarez.siplibrary.data.services.sip.SipMessageHandler
 import com.eddyslarez.siplibrary.data.services.websocket.MultiplatformWebSocket
 import com.eddyslarez.siplibrary.data.services.websocket.WebSocket
 import com.eddyslarez.siplibrary.data.store.SettingsDataStore
+import com.eddyslarez.siplibrary.interfaces.AppState
+import com.eddyslarez.siplibrary.interfaces.CallEndReason
 import com.eddyslarez.siplibrary.platform.PlatformInfo
 import com.eddyslarez.siplibrary.platform.PlatformRegistration
 import com.eddyslarez.siplibrary.platform.WindowManager
@@ -40,7 +47,7 @@ class SipCoreManager private constructor(
     val platformInfo: PlatformInfo,
     val settingsDataStore: SettingsDataStore,
 ) {
-    private var eventListener: EddysSipLibrary.SipEventListener? = null
+    private var eventListener: SipEventListener? = null
 
     val callHistoryManager = CallHistoryManager()
     private var registrationState = RegistrationState.NONE
@@ -82,7 +89,7 @@ class SipCoreManager private constructor(
         fun createInstance(
             application: Application,
             config: EddysSipLibrary.SipConfig,
-            eventListener: EddysSipLibrary.SipEventListener? = null
+            eventListener: SipEventListener? = null
         ): SipCoreManager {
             return SipCoreManager(
                 application = application,
@@ -103,7 +110,7 @@ class SipCoreManager private constructor(
 
     fun getCurrentUsername(): String? = currentAccountInfo?.username
 
-    fun setEventListener(listener: EddysSipLibrary.SipEventListener) {
+    fun setEventListener(listener: SipEventListener) {
         this.eventListener = listener
     }
 
@@ -245,8 +252,8 @@ class SipCoreManager private constructor(
                     AppLifecycleEvent.EnterBackground -> {
                         isAppInBackground = true
                         eventListener?.onAppStateChanged(
-                            EddysSipLibrary.AppState.BACKGROUND,
-                            EddysSipLibrary.AppState.FOREGROUND
+                            AppState.BACKGROUND,
+                            AppState.FOREGROUND
                         )
                         if (config.autoEnterPushOnBackground) {
                             enterPushMode("App entered background")
@@ -256,8 +263,8 @@ class SipCoreManager private constructor(
                     AppLifecycleEvent.EnterForeground -> {
                         isAppInBackground = false
                         eventListener?.onAppStateChanged(
-                            EddysSipLibrary.AppState.FOREGROUND,
-                            EddysSipLibrary.AppState.BACKGROUND
+                           AppState.FOREGROUND,
+                            AppState.BACKGROUND
                         )
                         if (config.autoExitPushOnForeground) {
                             exitPushMode("App entered foreground")
@@ -337,11 +344,13 @@ class SipCoreManager private constructor(
             accountInfo.webSocketClient = newWebSocketClient
         } catch (e: Exception) {
             log.e(tag = TAG) { "Error during reconnection: ${e.message}" }
-            eventListener?.onError(EddysSipLibrary.SipError(
+            eventListener?.onError(
+                SipError(
                 code = 1002,
                 message = "Reconnection failed: ${e.message}",
-                category = EddysSipLibrary.ErrorCategory.NETWORK
-            ))
+                category = ErrorCategory.NETWORK
+            )
+            )
         } finally {
             reconnectionInProgress = false
         }
@@ -377,10 +386,10 @@ class SipCoreManager private constructor(
             connectWebSocketAndRegister(accountInfo)
         } catch (e: Exception) {
             updateRegistrationState(RegistrationState.FAILED)
-            eventListener?.onError(EddysSipLibrary.SipError(
+            eventListener?.onError(SipError(
                 code = 1001,
                 message = "Registration error: ${e.message}",
-                category = EddysSipLibrary.ErrorCategory.AUTHENTICATION
+                category = ErrorCategory.AUTHENTICATION
             ))
             throw Exception("Registration error: ${e.message}")
         }
@@ -459,10 +468,10 @@ class SipCoreManager private constructor(
                 accountInfo.isRegistered = false
                 updateRegistrationState(RegistrationState.FAILED)
                 eventListener?.onWebSocketStateChanged(false, config.webSocketUrl)
-                eventListener?.onError(EddysSipLibrary.SipError(
+                eventListener?.onError(SipError(
                     code = 1003,
                     message = "WebSocket error: ${error.message}",
-                    category = EddysSipLibrary.ErrorCategory.NETWORK
+                    category = ErrorCategory.NETWORK
                 ))
                 handleConnectionError(accountInfo, error)
             }
@@ -519,10 +528,10 @@ class SipCoreManager private constructor(
 
         if (!accountInfo.isRegistered) {
             log.d(tag = TAG) { "Error: Not registered with SIP server" }
-            eventListener?.onError(EddysSipLibrary.SipError(
+            eventListener?.onError(SipError(
                 code = 1004,
                 message = "Not registered with SIP server",
-                category = EddysSipLibrary.ErrorCategory.SIP_PROTOCOL
+                category = ErrorCategory.SIP_PROTOCOL
             ))
             return
         }
@@ -777,7 +786,7 @@ class SipCoreManager private constructor(
     }
 
     // Enhanced audio device management
-    fun changeAudioDeviceByType(deviceType: EddysSipLibrary.AudioDeviceType): Boolean {
+    fun changeAudioDeviceByType(deviceType: AudioDeviceType): Boolean {
         return audioDeviceManager?.changeDeviceByType(deviceType) ?: false
     }
 
@@ -836,7 +845,7 @@ class SipCoreManager private constructor(
         return callStatistics
     }
 
-    fun getNetworkQuality(): EddysSipLibrary.NetworkQuality? {
+    fun getNetworkQuality(): NetworkQuality? {
         return networkQualityMonitor?.getCurrentQuality()
     }
 
@@ -846,12 +855,12 @@ class SipCoreManager private constructor(
         } else 0L
     }
 
-    private fun determineEndReason(previousState: CallState): EddysSipLibrary.CallEndReason {
+    private fun determineEndReason(previousState: CallState): CallEndReason {
         return when (previousState) {
-            CallState.CALLING, CallState.OUTGOING -> EddysSipLibrary.CallEndReason.CANCELLED
-            CallState.INCOMING, CallState.RINGING -> EddysSipLibrary.CallEndReason.DECLINED
-            CallState.CONNECTED -> EddysSipLibrary.CallEndReason.USER_HANGUP
-            else -> EddysSipLibrary.CallEndReason.NETWORK_ERROR
+            CallState.CALLING, CallState.OUTGOING ->CallEndReason.CANCELLED
+            CallState.INCOMING, CallState.RINGING -> CallEndReason.DECLINED
+            CallState.CONNECTED -> CallEndReason.USER_HANGUP
+            else ->CallEndReason.NETWORK_ERROR
         }
     }
 
@@ -928,9 +937,9 @@ class SipCoreManager private constructor(
  * Monitor de calidad de red
  */
 class NetworkQualityMonitor(
-    private val callback: (EddysSipLibrary.NetworkQuality) -> Unit
+    private val callback: (NetworkQuality) -> Unit
 ) {
-    private var currentQuality: EddysSipLibrary.NetworkQuality? = null
+    private var currentQuality: NetworkQuality? = null
     private val monitorJob = CoroutineScope(Dispatchers.IO).launch {
         while (true) {
             updateNetworkQuality()
@@ -945,7 +954,7 @@ class NetworkQualityMonitor(
         val jitter = (5..50).random().toLong()
         val score = calculateScore(latency, packetLoss, jitter)
 
-        currentQuality = EddysSipLibrary.NetworkQuality(
+        currentQuality = NetworkQuality(
             score = score,
             latency = latency,
             packetLoss = packetLoss,
@@ -980,7 +989,7 @@ class NetworkQualityMonitor(
         return (latencyScore + packetLossScore + jitterScore) / 3f
     }
 
-    fun getCurrentQuality(): EddysSipLibrary.NetworkQuality? = currentQuality
+    fun getCurrentQuality(): NetworkQuality? = currentQuality
 
     fun dispose() {
         monitorJob.cancel()
@@ -996,7 +1005,7 @@ class AudioDeviceManager(
 ) {
     private var currentDevice: AudioDevice? = null
 
-    fun changeDeviceByType(deviceType: EddysSipLibrary.AudioDeviceType): Boolean {
+    fun changeDeviceByType(deviceType: AudioDeviceType): Boolean {
         val (inputDevices, outputDevices) = webRtcManager.getAllAudioDevices()
         val targetDevice = findDeviceByType(outputDevices, deviceType)
 
@@ -1013,13 +1022,17 @@ class AudioDeviceManager(
         }
     }
 
-    private fun findDeviceByType(devices: List<AudioDevice>, type: EddysSipLibrary.AudioDeviceType): AudioDevice? {
+    private fun findDeviceByType(devices: List<AudioDevice>, type: AudioDeviceType): AudioDevice? {
         return when (type) {
-            EddysSipLibrary.AudioDeviceType.EARPIECE -> devices.find { it.descriptor == "earpiece" }
-            EddysSipLibrary.AudioDeviceType.SPEAKER -> devices.find { it.descriptor == "speaker" }
-            EddysSipLibrary.AudioDeviceType.BLUETOOTH -> devices.find { it.descriptor.startsWith("bluetooth_") }
-            EddysSipLibrary.AudioDeviceType.WIRED_HEADSET -> devices.find { it.descriptor == "wired_headset" }
-            EddysSipLibrary.AudioDeviceType.AUTO -> selectBestDevice(devices)
+           AudioDeviceType.EARPIECE -> devices.find { it.descriptor == "earpiece" }
+            AudioDeviceType.SPEAKER -> devices.find { it.descriptor == "speaker" }
+          AudioDeviceType.BLUETOOTH -> devices.find { it.descriptor.startsWith("bluetooth_") }
+           AudioDeviceType.WIRED_HEADSET -> devices.find { it.descriptor == "wired_headset" }
+            AudioDeviceType.BUILT_IN_MIC -> TODO()
+            AudioDeviceType.BUILT_IN_SPEAKER -> TODO()
+            AudioDeviceType.USB_HEADSET -> TODO()
+            AudioDeviceType.USB_DEVICE -> TODO()
+            AudioDeviceType.UNKNOWN -> TODO()
         }
     }
 
