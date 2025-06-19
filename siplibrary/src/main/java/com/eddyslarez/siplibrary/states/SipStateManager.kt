@@ -5,10 +5,15 @@ package com.eddyslarez.siplibrary.states
  *
  * @author Eddys Larez
  */
+import com.eddyslarez.siplibrary.NetworkQuality
+import com.eddyslarez.siplibrary.data.models.CallDirections
 import com.eddyslarez.siplibrary.data.models.CallState
 import com.eddyslarez.siplibrary.data.models.RegistrationState
 import com.eddyslarez.siplibrary.data.services.audio.AudioDevice
+import com.eddyslarez.siplibrary.interfaces.AppState
 import com.eddyslarez.siplibrary.interfaces.AudioQuality
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 
 class SipStateManager {

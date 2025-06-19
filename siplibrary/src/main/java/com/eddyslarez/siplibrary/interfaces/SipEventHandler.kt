@@ -1,5 +1,13 @@
 package com.eddyslarez.siplibrary.interfaces
 
+import com.eddyslarez.siplibrary.NetworkQuality
+import com.eddyslarez.siplibrary.SipError
+import com.eddyslarez.siplibrary.SipWarning
+import com.eddyslarez.siplibrary.core.CallStatistics
+import com.eddyslarez.siplibrary.data.models.CallState
+import com.eddyslarez.siplibrary.data.models.RegistrationState
+import com.eddyslarez.siplibrary.data.services.audio.AudioDevice
+
 /**
  * Interfaces específicas para eventos SIP - Permite múltiples listeners
  *

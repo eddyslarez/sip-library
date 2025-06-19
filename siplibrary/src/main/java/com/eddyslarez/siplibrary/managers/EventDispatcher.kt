@@ -15,13 +15,13 @@ import kotlin.reflect.KClass
 class EventDispatcher {
 
      val TAG = "EventDispatcher"
-    private val dispatchScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    val dispatchScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     // Almacena listeners por tipo de interface
      val listeners = ConcurrentHashMap<KClass<out SipEventHandler>, MutableSet<SipEventHandler>>()
 
     // Estadísticas de eventos
-    private val eventStats = ConcurrentHashMap<String, Int>()
+    val eventStats = ConcurrentHashMap<String, Int>()
 
     /**
      * Registra un listener para eventos específicos
