@@ -1,6 +1,7 @@
 package com.eddyslarez.siplibrary.data.services.audio
 
 import com.eddyslarez.siplibrary.data.models.AccountInfo
+import com.shepeliev.webrtckmp.AudioStreamTrack
 
 /**
  * Interface for managing WebRTC functionality across platforms
@@ -46,7 +47,8 @@ interface WebRtcManager {
      * @param sdpMLineIndex The media line index
      */
     suspend fun addIceCandidate(candidate: String, sdpMid: String?, sdpMLineIndex: Int?)
-
+    fun interceptRemoteAudio(audioTrack: AudioStreamTrack)
+    fun setAudioInterceptor(interceptor: AudioInterceptor?)
     fun getAllAudioDevices(): Pair<List<AudioDevice>, List<AudioDevice>>
 
     fun changeAudioOutputDeviceDuringCall(device: AudioDevice): Boolean

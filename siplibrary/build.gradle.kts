@@ -63,6 +63,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
     implementation("androidx.datastore:datastore-preferences:1.1.7")
     implementation("androidx.bluetooth:bluetooth:1.0.0-alpha02")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
