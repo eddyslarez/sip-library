@@ -128,6 +128,7 @@ class EddysSipLibrary private constructor() {
 
             // Inicializar componentes principales
             initializeComponents(application, config)
+            isInitialized = true
 
             // Registrar listeners iniciales
             initialListeners.forEach { listener ->
@@ -141,7 +142,6 @@ class EddysSipLibrary private constructor() {
             // Configurar conexiones entre componentes
             setupComponentConnections()
 
-            isInitialized = true
             log.d(tag = TAG) { "EddysSipLibrary Optimized initialized successfully" }
 
             // Notificar inicialización
