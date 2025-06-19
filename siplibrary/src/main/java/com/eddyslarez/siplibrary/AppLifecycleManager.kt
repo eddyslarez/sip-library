@@ -14,6 +14,7 @@ import android.os.PowerManager
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.eddyslarez.siplibrary.interfaces.AppState
 import com.eddyslarez.siplibrary.utils.log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,11 +29,11 @@ import kotlinx.coroutines.launch
 class AppLifecycleManager(
     private val application: Application,
     private var config: EddysSipLibrary.SipConfig,
-    private var eventListener: EddysSipLibrary.SipEventListener?
+    private var eventListener: SipEventListener?
 ) {
 
     private val TAG = "AppLifecycleManager"
-    private var currentAppState = EddysSipLibrary.AppState.FOREGROUND
+    private var currentAppState = AppState.FOREGROUND
     private var autoPushModeEnabled = true
     private var networkMonitor: NetworkMonitor? = null
     private var batteryOptimizationChecker: BatteryOptimizationChecker? = null
@@ -43,7 +44,7 @@ class AppLifecycleManager(
         setupBatteryOptimizationMonitoring()
     }
 
-    fun setEventListener(listener: EddysSipLibrary.SipEventListener) {
+    fun setEventListener(listener: SipEventListener) {
         this.eventListener = listener
     }
 
@@ -59,11 +60,11 @@ class AppLifecycleManager(
     private fun setupLifecycleObserver() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onStart(owner: LifecycleOwner) {
-                handleAppStateChange(EddysSipLibrary.AppState.FOREGROUND)
+                handleAppStateChange(AppState.FOREGROUND)
             }
 
             override fun onStop(owner: LifecycleOwner) {
-                handleAppStateChange(EddysSipLibrary.AppState.BACKGROUND)
+                handleAppStateChange(AppState.BACKGROUND)
             }
         })
 
@@ -80,7 +81,7 @@ class AppLifecycleManager(
                 CoroutineScope(Dispatchers.IO).launch {
                     delay(1000) // Esperar para ver si hay más actividades
                     if (isAppTerminating()) {
-                        handleAppStateChange(EddysSipLibrary.AppState.TERMINATED)
+                        handleAppStateChange(AppState.TERMINATED)
                     }
                 }
             }
@@ -92,9 +93,9 @@ class AppLifecycleManager(
             eventListener?.onNetworkStateChanged(isConnected, networkType)
 
             if (!isConnected) {
-                eventListener?.onWarning(EddysSipLibrary.SipWarning(
+                eventListener?.onWarning(SipWarning(
                     message = "Network connection lost",
-                    category = EddysSipLibrary.WarningCategory.NETWORK_QUALITY
+                    category = WarningCategory.NETWORK_QUALITY
                 ))
             }
         }
@@ -103,15 +104,15 @@ class AppLifecycleManager(
     private fun setupBatteryOptimizationMonitoring() {
         batteryOptimizationChecker = BatteryOptimizationChecker(application) { isOptimized ->
             if (isOptimized) {
-                eventListener?.onWarning(EddysSipLibrary.SipWarning(
+                eventListener?.onWarning(SipWarning(
                     message = "Battery optimization is enabled, this may affect call quality and push notifications",
-                    category = EddysSipLibrary.WarningCategory.BATTERY_OPTIMIZATION
+                    category = WarningCategory.BATTERY_OPTIMIZATION
                 ))
             }
         }
     }
 
-    private fun handleAppStateChange(newState: EddysSipLibrary.AppState) {
+    private fun handleAppStateChange(newState: AppState) {
         val previousState = currentAppState
         currentAppState = newState
 
@@ -119,15 +120,18 @@ class AppLifecycleManager(
         eventListener?.onAppStateChanged(newState, previousState)
 
         when (newState) {
-            EddysSipLibrary.AppState.FOREGROUND -> {
+           AppState.FOREGROUND -> {
                 handleForegroundTransition()
             }
-            EddysSipLibrary.AppState.BACKGROUND -> {
+            AppState.BACKGROUND -> {
                 handleBackgroundTransition()
             }
-            EddysSipLibrary.AppState.TERMINATED -> {
+            AppState.TERMINATED -> {
                 handleTerminationTransition()
             }
+
+            AppState.LOCKED ->{}
+            AppState.INACTIVE -> {}
         }
     }
 
@@ -135,7 +139,7 @@ class AppLifecycleManager(
         if (config.autoExitPushOnForeground && autoPushModeEnabled) {
             CoroutineScope(Dispatchers.IO).launch {
                 delay(config.pushReconnectDelayMs)
-                EddysSipLibrary.getInstance().exitPushMode("App entered foreground")
+//                EddysSipLibrary.getInstance().exitPushMode("App entered foreground")
             }
         }
     }
@@ -144,7 +148,7 @@ class AppLifecycleManager(
         if (config.autoEnterPushOnBackground && autoPushModeEnabled) {
             CoroutineScope(Dispatchers.IO).launch {
                 delay(config.pushReconnectDelayMs)
-                EddysSipLibrary.getInstance().enterPushMode("App entered background")
+//                EddysSipLibrary.getInstance().enterPushMode("App entered background")
             }
         }
 
