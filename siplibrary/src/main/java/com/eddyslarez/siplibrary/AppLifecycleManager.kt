@@ -20,16 +20,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
 /**
  * Gestor del ciclo de vida de la aplicación para manejo automático de estados
  *
  * @author Eddys Larez
  */
+
 class AppLifecycleManager(
     private val application: Application,
     private var config: EddysSipLibrary.SipConfig,
-    private var eventListener: SipEventListener?
+    private var eventListener: Any?
 ) {
 
     private val TAG = "AppLifecycleManager"
@@ -42,10 +42,6 @@ class AppLifecycleManager(
         setupLifecycleObserver()
         setupNetworkMonitoring()
         setupBatteryOptimizationMonitoring()
-    }
-
-    fun setEventListener(listener: SipEventListener) {
-        this.eventListener = listener
     }
 
     fun updateConfig(newConfig: EddysSipLibrary.SipConfig) {
@@ -90,24 +86,15 @@ class AppLifecycleManager(
 
     private fun setupNetworkMonitoring() {
         networkMonitor = NetworkMonitor(application) { isConnected, networkType ->
-            eventListener?.onNetworkStateChanged(isConnected, networkType)
-
-            if (!isConnected) {
-                eventListener?.onWarning(SipWarning(
-                    message = "Network connection lost",
-                    category = WarningCategory.NETWORK_QUALITY
-                ))
-            }
+            // Notificar cambios de red
+            log.d(tag = TAG) { "Network state changed: $isConnected ($networkType)" }
         }
     }
 
     private fun setupBatteryOptimizationMonitoring() {
         batteryOptimizationChecker = BatteryOptimizationChecker(application) { isOptimized ->
             if (isOptimized) {
-                eventListener?.onWarning(SipWarning(
-                    message = "Battery optimization is enabled, this may affect call quality and push notifications",
-                    category = WarningCategory.BATTERY_OPTIMIZATION
-                ))
+                log.w(tag = TAG) { "Battery optimization is enabled" }
             }
         }
     }
@@ -117,10 +104,9 @@ class AppLifecycleManager(
         currentAppState = newState
 
         log.d(tag = TAG) { "App state changed: $previousState -> $newState" }
-        eventListener?.onAppStateChanged(newState, previousState)
 
         when (newState) {
-           AppState.FOREGROUND -> {
+            AppState.FOREGROUND -> {
                 handleForegroundTransition()
             }
             AppState.BACKGROUND -> {
@@ -129,9 +115,7 @@ class AppLifecycleManager(
             AppState.TERMINATED -> {
                 handleTerminationTransition()
             }
-
-            AppState.LOCKED ->{}
-            AppState.INACTIVE -> {}
+            else -> {}
         }
     }
 
@@ -139,7 +123,7 @@ class AppLifecycleManager(
         if (config.autoExitPushOnForeground && autoPushModeEnabled) {
             CoroutineScope(Dispatchers.IO).launch {
                 delay(config.pushReconnectDelayMs)
-//                EddysSipLibrary.getInstance().exitPushMode("App entered foreground")
+                // Implementar salida de modo push
             }
         }
     }
@@ -148,15 +132,7 @@ class AppLifecycleManager(
         if (config.autoEnterPushOnBackground && autoPushModeEnabled) {
             CoroutineScope(Dispatchers.IO).launch {
                 delay(config.pushReconnectDelayMs)
-//                EddysSipLibrary.getInstance().enterPushMode("App entered background")
-            }
-        }
-
-        if (config.autoDisconnectWebSocketOnBackground) {
-            // Desconectar WebSocket si está configurado
-            CoroutineScope(Dispatchers.IO).launch {
-                delay(5000) // Esperar 5 segundos antes de desconectar
-                // Implementar desconexión de WebSocket
+                // Implementar entrada a modo push
             }
         }
     }

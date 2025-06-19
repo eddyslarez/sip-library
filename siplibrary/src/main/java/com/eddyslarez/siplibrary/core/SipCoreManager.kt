@@ -4,6 +4,8 @@ import android.app.Application
 import android.content.Context
 import com.eddyslarez.siplibrary.EddysSipLibrary
 import com.eddyslarez.siplibrary.ErrorCategory
+import com.eddyslarez.siplibrary.LegacyErrorCategory
+import com.eddyslarez.siplibrary.LegacySipError
 import com.eddyslarez.siplibrary.NetworkQuality
 import com.eddyslarez.siplibrary.SipError
 import com.eddyslarez.siplibrary.SipEventListener
@@ -345,10 +347,10 @@ class SipCoreManager private constructor(
         } catch (e: Exception) {
             log.e(tag = TAG) { "Error during reconnection: ${e.message}" }
             eventListener?.onError(
-                SipError(
+                LegacySipError(
                 code = 1002,
                 message = "Reconnection failed: ${e.message}",
-                category = ErrorCategory.NETWORK
+                category = LegacyErrorCategory.NETWORK
             )
             )
         } finally {
@@ -386,10 +388,10 @@ class SipCoreManager private constructor(
             connectWebSocketAndRegister(accountInfo)
         } catch (e: Exception) {
             updateRegistrationState(RegistrationState.FAILED)
-            eventListener?.onError(SipError(
+            eventListener?.onError(LegacySipError(
                 code = 1001,
                 message = "Registration error: ${e.message}",
-                category = ErrorCategory.AUTHENTICATION
+                category = LegacyErrorCategory.AUTHENTICATION
             ))
             throw Exception("Registration error: ${e.message}")
         }
@@ -468,10 +470,10 @@ class SipCoreManager private constructor(
                 accountInfo.isRegistered = false
                 updateRegistrationState(RegistrationState.FAILED)
                 eventListener?.onWebSocketStateChanged(false, config.webSocketUrl)
-                eventListener?.onError(SipError(
+                eventListener?.onError(LegacySipError(
                     code = 1003,
                     message = "WebSocket error: ${error.message}",
-                    category = ErrorCategory.NETWORK
+                    category = LegacyErrorCategory.NETWORK
                 ))
                 handleConnectionError(accountInfo, error)
             }
@@ -528,11 +530,13 @@ class SipCoreManager private constructor(
 
         if (!accountInfo.isRegistered) {
             log.d(tag = TAG) { "Error: Not registered with SIP server" }
-            eventListener?.onError(SipError(
+            eventListener?.onError(
+                LegacySipError(
                 code = 1004,
                 message = "Not registered with SIP server",
-                category = ErrorCategory.SIP_PROTOCOL
-            ))
+                category = LegacyErrorCategory.SIP_PROTOCOL
+            )
+            )
             return
         }
 

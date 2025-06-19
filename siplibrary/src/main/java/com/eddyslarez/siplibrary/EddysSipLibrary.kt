@@ -35,17 +35,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
-
-/**
- * EddysSipLibrary Optimizada con Interfaces y StateFlow
- *
- * @author Eddys Larez
- * @version 2.0.0
- */
 class EddysSipLibrary private constructor() {
 
     private var sipCoreManager: SipCoreManager? = null
-    private var isInitialized = false
+    var isInitialized = false
     private lateinit var config: SipConfig
     lateinit var eventDispatcher: EventDispatcher
     private lateinit var stateManager: SipStateManager
@@ -56,7 +49,7 @@ class EddysSipLibrary private constructor() {
     companion object {
         @Volatile
         private var INSTANCE: EddysSipLibrary? = null
-        private const val TAG = "EddysSipLibraryOptimized"
+        const val TAG = "EddysSipLibrary"
 
         fun getInstance(): EddysSipLibrary {
             return INSTANCE ?: synchronized(this) {
@@ -128,7 +121,6 @@ class EddysSipLibrary private constructor() {
 
             // Inicializar componentes principales
             initializeComponents(application, config)
-            isInitialized = true
 
             // Registrar listeners iniciales
             initialListeners.forEach { listener ->
@@ -142,6 +134,7 @@ class EddysSipLibrary private constructor() {
             // Configurar conexiones entre componentes
             setupComponentConnections()
 
+            isInitialized = true
             log.d(tag = TAG) { "EddysSipLibrary Optimized initialized successfully" }
 
             // Notificar inicialización
@@ -220,12 +213,10 @@ class EddysSipLibrary private constructor() {
             }
 
             override fun onIncomingCall(callerNumber: String, callerName: String?, callId: String) {
-                stateManager.updateCallerInfo(
-                    CallerInfo(
+                stateManager.updateCallerInfo(CallerInfo(
                     number = callerNumber,
                     name = callerName
-                )
-                )
+                ))
 
                 // Reproducir ringtone automáticamente
                 ringtoneController.playIncomingRingtone()
@@ -286,19 +277,17 @@ class EddysSipLibrary private constructor() {
                 }
             }
 
-            override fun onError(error: SipError) {
+            override fun onError(error: LegacySipError) {
                 val optimizedError = SipError(
                     code = error.code,
                     message = error.message,
                     category = when (error.category) {
-                       ErrorCategory.NETWORK -> ErrorCategory.NETWORK
-                       ErrorCategory.AUTHENTICATION -> ErrorCategory.AUTHENTICATION
-                      ErrorCategory.AUDIO -> ErrorCategory.AUDIO
-                        ErrorCategory.SIP_PROTOCOL -> ErrorCategory.SIP_PROTOCOL
-                       ErrorCategory.WEBRTC -> ErrorCategory.WEBRTC
-                        ErrorCategory.CONFIGURATION -> ErrorCategory.CONFIGURATION
-                        ErrorCategory.PERMISSION -> TODO()
-                        ErrorCategory.SYSTEM -> TODO()
+                        LegacyErrorCategory.NETWORK -> ErrorCategory.NETWORK
+                        LegacyErrorCategory.AUTHENTICATION -> ErrorCategory.AUTHENTICATION
+                        LegacyErrorCategory.AUDIO -> ErrorCategory.AUDIO
+                        LegacyErrorCategory.SIP_PROTOCOL -> ErrorCategory.SIP_PROTOCOL
+                        LegacyErrorCategory.WEBRTC -> ErrorCategory.WEBRTC
+                        LegacyErrorCategory.CONFIGURATION -> ErrorCategory.CONFIGURATION
                     }
                 )
 
@@ -366,7 +355,10 @@ class EddysSipLibrary private constructor() {
      * Registra un listener para eventos específicos
      */
     inline fun <reified T : SipEventHandler> registerEventListener(listener: T) {
-        checkInitialized()
+        if (!isInitialized) {
+            log.w(tag = TAG) { "Library not initialized, listener will be registered after initialization" }
+            return
+        }
         eventDispatcher.registerListener(listener)
     }
 
@@ -374,7 +366,7 @@ class EddysSipLibrary private constructor() {
      * Desregistra un listener
      */
     inline fun <reified T : SipEventHandler> unregisterEventListener(listener: T) {
-        checkInitialized()
+        if (!isInitialized) return
         eventDispatcher.unregisterListener(listener)
     }
 
@@ -572,7 +564,8 @@ class EddysSipLibrary private constructor() {
     fun getListenerCounts(): Map<String, Int> = eventDispatcher.getListenerCounts()
 
     fun getSystemHealthReport(): String {
-        checkInitialized()
+        if (!isInitialized) return "Library not initialized"
+
         return buildString {
             appendLine("=== EddysSipLibrary Optimized Health Report ===")
             appendLine("Version: 2.0.0")
@@ -591,7 +584,7 @@ class EddysSipLibrary private constructor() {
         }
     }
 
-    fun checkInitialized() {
+    private fun checkInitialized() {
         if (!isInitialized || sipCoreManager == null) {
             throw SipLibraryException("Library not initialized. Call initialize() first.")
         }
@@ -619,6 +612,8 @@ class EddysSipLibrary private constructor() {
      */
     class SipLibraryException(message: String, cause: Throwable? = null) : Exception(message, cause)
 }
+
+
 /**
  * Interface principal para eventos de la biblioteca
  */
@@ -673,8 +668,26 @@ interface SipEventListener {
 
 
     // Eventos de errores
-    fun onError(error: SipError) {}
+    fun onError(error: LegacySipError) {}
     fun onWarning(warning: SipWarning) {}
+}
+
+/**
+ * Error legacy para compatibilidad
+ */
+data class LegacySipError(
+    val code: Int,
+    val message: String,
+    val category: LegacyErrorCategory
+)
+
+enum class LegacyErrorCategory {
+    NETWORK,
+    AUTHENTICATION,
+    AUDIO,
+    SIP_PROTOCOL,
+    WEBRTC,
+    CONFIGURATION
 }
 data class NetworkQuality(
     val score: Float, // 0.0 - 1.0
