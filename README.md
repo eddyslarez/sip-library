@@ -1,4 +1,4 @@
-# EddysSipLibrary - Biblioteca SIP/VoIP para Android
+#EddysSipLibrary - Biblioteca SIP/VoIP para Android
 
 Una biblioteca completa para implementar funcionalidad SIP/VoIP en aplicaciones Android con soporte para WebRTC, WebSocket, y manejo automático de estados.
 
