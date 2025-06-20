@@ -2,6 +2,7 @@ package com.eddyslarez.siplibrary
 
 import android.app.Application
 import android.content.Context
+import com.eddyslarez.siplibrary.core.GlobalEventBus
 import com.eddyslarez.siplibrary.core.RingtoneConfig
 import com.eddyslarez.siplibrary.core.SipCoreManager
 import com.eddyslarez.siplibrary.core.SipEventDispatcher
@@ -11,6 +12,11 @@ import com.eddyslarez.siplibrary.data.models.CallLog
 import com.eddyslarez.siplibrary.data.models.CallState
 import com.eddyslarez.siplibrary.data.models.RegistrationState
 import com.eddyslarez.siplibrary.data.services.audio.AudioDevice
+import com.eddyslarez.siplibrary.error.ErrorCategory
+import com.eddyslarez.siplibrary.error.ErrorCodes
+import com.eddyslarez.siplibrary.error.SipError
+import com.eddyslarez.siplibrary.error.SipLibraryException
+import com.eddyslarez.siplibrary.events.SipEvent
 import com.eddyslarez.siplibrary.interfaces.SipEventListener
 import com.eddyslarez.siplibrary.utils.StateManager
 import com.eddyslarez.siplibrary.utils.log
@@ -24,18 +30,16 @@ import kotlinx.datetime.Clock
 /**
  * EddysSipLibrary - Biblioteca SIP/VoIP optimizada para Android
  *
- * Versión mejorada con interfaces, múltiples listeners y mejor arquitectura
+ * Versión 3.0.0 - Modular, independiente y fácil de usar
  *
  * @author Eddys Larez
- * @version 2.0.0
+ * @version 3.0.0
  */
 class EddysSipLibrary private constructor() {
 
     private var sipCoreManager: SipCoreManager? = null
     private var isInitialized = false
     private lateinit var config: SipConfig
-    private val eventDispatcher = SipEventDispatcher()
-    private var lifecycleManager: AppLifecycleManager? = null
 
     companion object {
         @Volatile
@@ -50,504 +54,242 @@ class EddysSipLibrary private constructor() {
                 INSTANCE ?: EddysSipLibrary().also { INSTANCE = it }
             }
         }
+
+        /**
+         * Versión actual de la biblioteca
+         */
+        const val VERSION = "3.0.0"
     }
 
     /**
-     * Configuración completa de la biblioteca con soporte para ringtone
+     * Configuración simplificada de la biblioteca
      */
     data class SipConfig(
         val defaultDomain: String = "",
         val webSocketUrl: String = "",
-        val userAgent: String = "EddysSipLibrary/2.0.0",
+        val userAgent: String = "EddysSipLibrary/3.0.0",
         val enableLogs: Boolean = true,
-        val enableAutoReconnect: Boolean = true,
+        val autoReconnect: Boolean = true,
         val pingIntervalMs: Long = 30000L,
         val registrationExpiresSeconds: Int = 3600,
 
-        // Configuración automática de push
+        // Push notifications
         val autoEnterPushOnBackground: Boolean = true,
         val autoExitPushOnForeground: Boolean = true,
-        val autoDisconnectWebSocketOnBackground: Boolean = false,
         val pushReconnectDelayMs: Long = 2000L,
 
-        // Configuración de audio
-        val autoSelectAudioDevice: Boolean = true,
+        // Audio
         val preferredAudioDevice: AudioDeviceType = AudioDeviceType.EARPIECE,
         val enableEchoCancellation: Boolean = true,
         val enableNoiseSuppression: Boolean = true,
 
-        // Configuración de llamadas
-        val autoAcceptDelay: Long = 0L, // 0 = manual, >0 = auto accept after delay
+        // Llamadas
+        val autoAcceptDelay: Long = 0L,
         val callTimeoutSeconds: Int = 60,
-        val enableCallRecording: Boolean = false,
 
-        // Configuración de ringtone
+        // Ringtone
         val ringtoneConfig: RingtoneConfig = RingtoneConfig(),
 
         // Headers personalizados
-        val customHeaders: Map<String, String> = emptyMap(),
-        val customContactParams: Map<String, String> = emptyMap()
+        val customHeaders: Map<String, String> = emptyMap()
     )
 
-    /**
-     * Tipos de dispositivos de audio
-     */
     enum class AudioDeviceType {
-        EARPIECE,
-        SPEAKER,
-        BLUETOOTH,
-        WIRED_HEADSET,
-        AUTO
+        EARPIECE, SPEAKER, BLUETOOTH, WIRED_HEADSET, AUTO
     }
 
-    /**
-     * Estados de la aplicación
-     */
     enum class AppState {
-        FOREGROUND,
-        BACKGROUND,
-        TERMINATED
+        FOREGROUND, BACKGROUND, TERMINATED
     }
 
-    /**
-     * Razones de finalización de llamada
-     */
     enum class CallEndReason {
-        USER_HANGUP,
-        REMOTE_HANGUP,
-        BUSY,
-        DECLINED,
-        TIMEOUT,
-        NETWORK_ERROR,
-        SERVER_ERROR,
-        CANCELLED
+        USER_HANGUP, REMOTE_HANGUP, BUSY, DECLINED,
+        TIMEOUT, NETWORK_ERROR, SERVER_ERROR, CANCELLED
     }
 
-    /**
-     * Calidad de red
-     */
     data class NetworkQuality(
-        val score: Float, // 0.0 - 1.0
+        val score: Float,
         val latency: Long,
         val packetLoss: Float,
         val jitter: Long
     )
 
     /**
-     * Errores de SIP
+     * Inicializa la biblioteca SIP de manera simple
      */
-    data class SipError(
-        val code: Int,
-        val message: String,
-        val category: ErrorCategory,
-        val timestamp: Long = Clock.System.now().toEpochMilliseconds()
-    )
-
-    /**
-     * Advertencias de SIP
-     */
-    data class SipWarning(
-        val message: String,
-        val category: WarningCategory,
-        val timestamp: Long = Clock.System.now().toEpochMilliseconds()
-    )
-
-    enum class ErrorCategory {
-        NETWORK,
-        AUTHENTICATION,
-        AUDIO,
-        SIP_PROTOCOL,
-        WEBRTC,
-        CONFIGURATION
-    }
-
-    enum class WarningCategory {
-        AUDIO_QUALITY,
-        NETWORK_QUALITY,
-        BATTERY_OPTIMIZATION,
-        PERMISSION
-    }
-
-    /**
-     * Inicializa la biblioteca SIP
-     *
-     * @param application Instancia de la aplicación Android
-     * @param config Configuración de la biblioteca
-     */
-    fun initialize(
+    suspend fun initialize(
         application: Application,
         config: SipConfig = SipConfig()
-    ) {
-        if (isInitialized) {
-            log.w(tag = TAG) { "Library already initialized" }
-            return
-        }
+    ): Result<Unit> {
+        return try {
+            if (isInitialized) {
+                return Result.success(Unit)
+            }
 
-        try {
-            log.d(tag = TAG) { "Initializing EddysSipLibrary v2.0.0 by Eddys Larez" }
+            log.d(tag = TAG) { "Initializing EddysSipLibrary v3.0.0" }
 
             this.config = config
 
-            // Inicializar gestor de ciclo de vida
-            lifecycleManager = AppLifecycleManager(application, config, eventDispatcher)
+            // Inicializar el sistema de eventos global
+            GlobalEventBus.initialize()
 
-            // Crear Enhanced SipCoreManager
-            sipCoreManager = SipCoreManager.createInstance(application, config, eventDispatcher)
+            // Crear SipCoreManager mejorado - CORREGIDO
+            sipCoreManager = SipCoreManager.createInstance(application, config)
             sipCoreManager?.initialize()
 
-            // Configurar callbacks internos
-            setupInternalCallbacks()
-
             isInitialized = true
+
+            GlobalEventBus.emit(SipEvent.LibraryInitialized(VERSION))
+
             log.d(tag = TAG) { "EddysSipLibrary initialized successfully" }
+            Result.success(Unit)
 
         } catch (e: Exception) {
             log.e(tag = TAG) { "Error initializing library: ${e.message}" }
-            CoroutineScope(Dispatchers.IO).launch {
-                eventDispatcher.onError(SipError(
-                    code = -1,
-                    message = "Failed to initialize library: ${e.message}",
-                    category = ErrorCategory.CONFIGURATION
-                ))
-            }
-            throw SipLibraryException("Failed to initialize library", e)
+
+            val error = SipError(
+                code = ErrorCodes.INITIALIZATION_FAILED,
+                message = "Failed to initialize library: ${e.message}",
+                category = ErrorCategory.CONFIGURATION,
+                cause = e
+            )
+
+            GlobalEventBus.emit(SipEvent.Error(error))
+            Result.failure(SipLibraryException("Failed to initialize library", error, e))
         }
     }
 
-    // ============ GESTIÓN DE LISTENERS ============
+    // ============ GESTIÓN DE LLAMADAS ============
 
-    /**
-     * Agrega un listener para eventos SIP
-     */
-    suspend fun addEventListener(listener: SipEventListener) {
-        checkInitialized()
-        eventDispatcher.addListener(listener)
-        log.d(tag = TAG) { "Event listener added" }
-    }
-
-    /**
-     * Remueve un listener de eventos SIP
-     */
-    suspend fun removeEventListener(listener: SipEventListener) {
-        checkInitialized()
-        eventDispatcher.removeListener(listener)
-        log.d(tag = TAG) { "Event listener removed" }
-    }
-
-    /**
-     * Limpia todos los listeners
-     */
-    suspend fun clearEventListeners() {
-        checkInitialized()
-        eventDispatcher.clearListeners()
-        log.d(tag = TAG) { "All event listeners cleared" }
-    }
-
-    /**
-     * Obtiene la cantidad de listeners registrados
-     */
-    suspend fun getListenerCount(): Int {
-        checkInitialized()
-        return eventDispatcher.getListenerCount()
-    }
-
-    // ============ GESTIÓN DE LLAMADAS (usando CallManager interface) ============
-
-    /**
-     * Realiza una llamada
-     */
     suspend fun makeCall(
         phoneNumber: String,
         username: String? = null,
         domain: String? = null,
         customHeaders: Map<String, String> = emptyMap()
-    ) {
-        checkInitialized()
+    ): Result<String> {
+        return executeWithErrorHandling("makeCall") {
+            checkInitialized()
 
-        val finalUsername = username ?: sipCoreManager?.getCurrentUsername()
-        val finalDomain = domain ?: config.defaultDomain
+            val finalUsername = username ?: sipCoreManager?.getCurrentUsername()
+            ?: throw SipLibraryException("No registered account available",
+                SipError(ErrorCodes.NO_REGISTERED_ACCOUNT, "No account available", ErrorCategory.CONFIGURATION))
 
-        if (finalUsername == null) {
-            val error = SipError(
-                code = 1001,
-                message = "No registered account available for calling",
-                category = ErrorCategory.CONFIGURATION
-            )
-            eventDispatcher.onError(error)
-            throw SipLibraryException("No registered account available for calling")
+            val finalDomain = domain ?: config.defaultDomain
+            val callId = sipCoreManager?.makeCall(phoneNumber, finalUsername, finalDomain, customHeaders)
+                ?: throw SipLibraryException("Failed to initiate call",
+                    SipError(ErrorCodes.CALL_INITIATION_FAILED, "Call failed to start", ErrorCategory.SIP_PROTOCOL))
+
+            callId
         }
-
-        sipCoreManager?.makeCall(phoneNumber, finalUsername, finalDomain, customHeaders)
     }
 
-    /**
-     * Acepta una llamada entrante
-     */
-    suspend fun acceptCall() {
-        checkInitialized()
-        sipCoreManager?.acceptCall()
+    suspend fun acceptCall(): Result<Unit> {
+        return executeWithErrorHandling("acceptCall") {
+            checkInitialized()
+            sipCoreManager?.acceptCall() ?: Unit
+        }
     }
 
-    /**
-     * Rechaza una llamada entrante
-     */
-    suspend fun declineCall() {
-        checkInitialized()
-        sipCoreManager?.declineCall()
+    suspend fun declineCall(): Result<Unit> {
+        return executeWithErrorHandling("declineCall") {
+            checkInitialized()
+            sipCoreManager?.declineCall() ?: Unit
+        }
     }
 
-    /**
-     * Termina la llamada actual
-     */
-    suspend fun endCall() {
-        checkInitialized()
-        sipCoreManager?.endCall()
+    suspend fun endCall(): Result<Unit> {
+        return executeWithErrorHandling("endCall") {
+            checkInitialized()
+            sipCoreManager?.endCall() ?: Unit
+        }
     }
 
-    /**
-     * Pone en espera la llamada actual
-     */
-    suspend fun holdCall() {
-        checkInitialized()
-        sipCoreManager?.holdCall()
+    suspend fun holdCall(): Result<Unit> {
+        return executeWithErrorHandling("holdCall") {
+            checkInitialized()
+            sipCoreManager?.holdCall() ?: Unit
+        }
     }
 
-    /**
-     * Reanuda una llamada en espera
-     */
-    suspend fun resumeCall() {
-        checkInitialized()
-        sipCoreManager?.resumeCall()
+    suspend fun resumeCall(): Result<Unit> {
+        return executeWithErrorHandling("resumeCall") {
+            checkInitialized()
+            sipCoreManager?.resumeCall() ?: Unit
+        }
     }
 
     // ============ GESTIÓN DE AUDIO ============
 
-    /**
-     * Obtiene todos los dispositivos de audio disponibles
-     */
-    suspend fun getAudioDevices(): Pair<List<AudioDevice>, List<AudioDevice>> {
-        checkInitialized()
-        val audioManager = sipCoreManager?.getAudioManager()
-        val inputDevices = audioManager?.getAudioInputDevices() ?: emptyList()
-        val outputDevices = audioManager?.getAudioOutputDevices() ?: emptyList()
+    suspend fun getAudioDevices(): Result<Pair<List<AudioDevice>, List<AudioDevice>>> {
+        return executeWithErrorHandling("getAudioDevices") {
+            checkInitialized()
+            val audioManager = sipCoreManager?.getAudioManager()
+                ?: throw SipLibraryException("Audio manager not available",
+                    SipError(ErrorCodes.AUDIO_MANAGER_UNAVAILABLE, "Audio manager not initialized", ErrorCategory.AUDIO))
 
-        eventDispatcher.onAudioDevicesAvailable(inputDevices, outputDevices)
-        return Pair(inputDevices, outputDevices)
+            val inputDevices = audioManager.getAudioInputDevices()
+            val outputDevices = audioManager.getAudioOutputDevices()
+
+            GlobalEventBus.emit(SipEvent.AudioDevicesAvailable(inputDevices, outputDevices))
+            Pair(inputDevices, outputDevices)
+        }
     }
 
-    /**
-     * Cambia el dispositivo de audio de entrada
-     */
-    fun changeAudioInputDevice(device: AudioDevice): Boolean {
-        checkInitialized()
-        val audioManager = sipCoreManager?.getAudioManager()
-        val oldDevice = audioManager?.getCurrentInputDevice()
-        val success = audioManager?.changeAudioInputDevice(device) ?: false
-        if (success) {
-            CoroutineScope(Dispatchers.IO).launch {
-                eventDispatcher.onAudioDeviceChanged(oldDevice, device)
+    fun changeAudioOutputDevice(device: AudioDevice): Result<Unit> {
+        return executeWithErrorHandling("changeAudioOutputDevice") {
+            checkInitialized()
+            val audioManager = sipCoreManager?.getAudioManager()
+                ?: throw SipLibraryException("Audio manager not available",
+                    SipError(ErrorCodes.AUDIO_MANAGER_UNAVAILABLE, "Audio manager not initialized", ErrorCategory.AUDIO))
+
+            val oldDevice = audioManager.getCurrentOutputDevice()
+            val success = audioManager.changeAudioOutputDevice(device)
+
+            if (!success) {
+                throw SipLibraryException("Failed to change audio device",
+                    SipError(ErrorCodes.AUDIO_DEVICE_CHANGE_FAILED, "Device change failed", ErrorCategory.AUDIO))
             }
-        }
-        return success
-    }
 
-    /**
-     * Cambia el dispositivo de audio de salida
-     */
-    fun changeAudioOutputDevice(device: AudioDevice): Boolean {
-        checkInitialized()
-        val audioManager = sipCoreManager?.getAudioManager()
-        val oldDevice = audioManager?.getCurrentOutputDevice()
-        val success = audioManager?.changeAudioOutputDevice(device) ?: false
-        if (success) {
-            CoroutineScope(Dispatchers.IO).launch {
-                eventDispatcher.onAudioDeviceChanged(oldDevice, device)
-            }
-        }
-        return success
-    }
-
-    /**
-     * Obtiene el dispositivo de entrada actual
-     */
-    fun getCurrentInputDevice(): AudioDevice? {
-        checkInitialized()
-        return sipCoreManager?.getAudioManager()?.getCurrentInputDevice()
-    }
-
-    /**
-     * Obtiene el dispositivo de salida actual
-     */
-    fun getCurrentOutputDevice(): AudioDevice? {
-        checkInitialized()
-        return sipCoreManager?.getAudioManager()?.getCurrentOutputDevice()
-    }
-
-    /**
-     * Alterna el estado de mute del micrófono
-     */
-    fun toggleMute() {
-        checkInitialized()
-        val audioManager = sipCoreManager?.getAudioManager()
-        val wasMuted = audioManager?.isMuted() ?: false
-        audioManager?.setMuted(!wasMuted)
-
-        CoroutineScope(Dispatchers.IO).launch {
-            eventDispatcher.onMuteStateChanged(!wasMuted)
+            GlobalEventBus.emit(SipEvent.AudioDeviceChanged(oldDevice, device))
+            Unit
         }
     }
 
-    /**
-     * Verifica si el micrófono está en mute
-     */
-    fun isMuted(): Boolean {
-        checkInitialized()
-        return sipCoreManager?.getAudioManager()?.isMuted() ?: false
-    }
+    fun toggleMute(): Result<Boolean> {
+        return executeWithErrorHandling("toggleMute") {
+            checkInitialized()
+            val audioManager = sipCoreManager?.getAudioManager()
+                ?: throw SipLibraryException("Audio manager not available",
+                    SipError(ErrorCodes.AUDIO_MANAGER_UNAVAILABLE, "Audio manager not initialized", ErrorCategory.AUDIO))
 
-    /**
-     * Diagnostica problemas de audio
-     */
-    fun diagnoseAudioIssues(): String {
-        checkInitialized()
-        return sipCoreManager?.getAudioManager()?.diagnoseAudioIssues() ?: "Audio manager not available"
-    }
+            val wasMuted = audioManager.isMuted()
+            audioManager.setMuted(!wasMuted)
+            val newMuteState = !wasMuted
 
-    // ============ GESTIÓN DE RINGTONE ============
-
-    /**
-     * Actualiza la configuración de ringtone
-     */
-    fun updateRingtoneConfig(ringtoneConfig: RingtoneConfig) {
-        checkInitialized()
-        sipCoreManager?.updateRingtoneConfig(ringtoneConfig)
-
-        // Update config
-        this.config = this.config.copy(ringtoneConfig = ringtoneConfig)
-    }
-
-    /**
-     * Habilita o deshabilita los ringtones
-     */
-    fun setRingtoneEnabled(enabled: Boolean) {
-        checkInitialized()
-        sipCoreManager?.getRingtoneManager()?.setRingtoneEnabled(enabled)
-    }
-
-    /**
-     * Verifica si los ringtones están habilitados
-     */
-    fun isRingtoneEnabled(): Boolean {
-        checkInitialized()
-        return sipCoreManager?.getRingtoneManager()?.isRingtoneEnabled() ?: true
-    }
-
-    /**
-     * Detiene todos los ringtones manualmente
-     */
-    fun stopAllRingtones() {
-        checkInitialized()
-        sipCoreManager?.getRingtoneManager()?.stopAllRingtones()
+            GlobalEventBus.emit(SipEvent.MuteStateChanged(newMuteState))
+            newMuteState
+        }
     }
 
     // ============ DTMF ============
 
-    /**
-     * Envía un dígito DTMF
-     */
-    fun sendDtmf(digit: Char, duration: Int = 160): Boolean {
-        checkInitialized()
-        return sipCoreManager?.sendDtmf(digit, duration) ?: false
+    fun sendDtmf(digit: Char, duration: Int = 160): Result<Unit> {
+        return executeWithErrorHandling("sendDtmf") {
+            checkInitialized()
+            val success = sipCoreManager?.sendDtmf(digit, duration) ?: false
+
+            if (!success) {
+                throw SipLibraryException("Failed to send DTMF",
+                    SipError(ErrorCodes.DTMF_SEND_FAILED, "DTMF send failed", ErrorCategory.SIP_PROTOCOL))
+            }
+
+            Unit
+        }
     }
 
-    /**
-     * Envía una secuencia de dígitos DTMF
-     */
-    fun sendDtmfSequence(digits: String, duration: Int = 160): Boolean {
-        checkInitialized()
-        return sipCoreManager?.sendDtmfSequence(digits, duration) ?: false
-    }
+    // ============ REGISTRO ============
 
-    // ============ ESTADO Y FLUJOS REACTIVOS ============
-
-    /**
-     * Obtiene el estado actual de la llamada
-     */
-    fun getCurrentCallState(): CallState {
-        checkInitialized()
-        return StateManager.getCurrentCallState()
-    }
-
-    /**
-     * Obtiene el estado actual de registro
-     */
-    fun getRegistrationState(): RegistrationState {
-        checkInitialized()
-        return StateManager.getCurrentRegistrationState()
-    }
-
-    /**
-     * Verifica si hay una llamada activa
-     */
-    fun hasActiveCall(): Boolean {
-        checkInitialized()
-        return sipCoreManager?.hasActiveCall() ?: false
-    }
-
-    /**
-     * Verifica si hay una llamada conectada
-     */
-    fun isCallConnected(): Boolean {
-        checkInitialized()
-        return sipCoreManager?.isCallConnected() ?: false
-    }
-
-    /**
-     * Obtiene el flow reactivo del estado de llamada
-     */
-    fun getCallStateFlow(): Flow<CallState> {
-        checkInitialized()
-        return StateManager.callStateFlow
-    }
-
-    /**
-     * Obtiene el flow reactivo del estado de registro
-     */
-    fun getRegistrationStateFlow(): Flow<RegistrationState> {
-        checkInitialized()
-        return StateManager.registrationStateFlow
-    }
-
-    /**
-     * Obtiene el flow reactivo del estado de audio
-     */
-    fun getAudioStateFlow(): Flow<StateManager.AudioState> {
-        checkInitialized()
-        return StateManager.audioStateFlow
-    }
-
-    /**
-     * Obtiene el flow reactivo del estado de ringtone
-     */
-    fun getRingtoneStateFlow(): Flow<StateManager.RingtoneState> {
-        checkInitialized()
-        return StateManager.ringtoneStateFlow
-    }
-
-    /**
-     * Obtiene el flow reactivo del estado de red
-     */
-    fun getNetworkStateFlow(): Flow<StateManager.NetworkState> {
-        checkInitialized()
-        return StateManager.networkStateFlow
-    }
-
-    // ============ REGISTRO Y CONEXIÓN ============
-
-    /**
-     * Registra una cuenta SIP
-     */
-    fun registerAccount(
+    suspend fun registerAccount(
         username: String,
         password: String,
         domain: String? = null,
@@ -555,153 +297,100 @@ class EddysSipLibrary private constructor() {
         pushProvider: String = "fcm",
         customHeaders: Map<String, String> = emptyMap(),
         expires: Int? = null
-    ) {
-        checkInitialized()
+    ): Result<Unit> {
+        return executeWithErrorHandling("registerAccount") {
+            checkInitialized()
 
-        val finalDomain = domain ?: config.defaultDomain
-        val finalExpires = expires ?: config.registrationExpiresSeconds
-        val finalHeaders = config.customHeaders + customHeaders
+            val finalDomain = domain ?: config.defaultDomain
+            val finalExpires = expires ?: config.registrationExpiresSeconds
+            val finalHeaders = config.customHeaders + customHeaders
 
-        sipCoreManager?.register(
-            username = username,
-            password = password,
-            domain = finalDomain,
-            provider = pushProvider,
-            token = pushToken ?: "",
-            customHeaders = finalHeaders,
-            expires = finalExpires
-        )
-    }
-
-    /**
-     * Desregistra una cuenta SIP
-     */
-    fun unregisterAccount(username: String, domain: String? = null) {
-        checkInitialized()
-        val finalDomain = domain ?: config.defaultDomain
-        // Implementation depends on SipCoreManager
-    }
-
-    // ============ CONFIGURACIÓN Y MODO PUSH ============
-
-    /**
-     * Actualiza la configuración de push notifications
-     */
-    fun updatePushConfiguration(
-        token: String,
-        provider: String = "fcm",
-        customParams: Map<String, String> = emptyMap()
-    ) {
-        checkInitialized()
-        CoroutineScope(Dispatchers.IO).launch {
-            eventDispatcher.onPushTokenUpdated(token, provider)
+            sipCoreManager?.register(
+                username = username,
+                password = password,
+                domain = finalDomain,
+                provider = pushProvider,
+                token = pushToken ?: "",
+                customHeaders = finalHeaders,
+                expires = finalExpires
+            ) ?: Unit
         }
     }
 
-    /**
-     * Entra en modo push
-     */
-    fun enterPushMode(reason: String = "Manual") {
-        checkInitialized()
-        sipCoreManager?.enterPushMode(reason)
+    // ============ ESTADO ============
+
+    fun getCurrentCallState(): CallState {
+        return if (isInitialized) {
+            StateManager.getCurrentCallState()
+        } else {
+            CallState.NONE
+        }
     }
 
-    /**
-     * Sale del modo push
-     */
-    fun exitPushMode(reason: String = "Manual") {
-        checkInitialized()
-        sipCoreManager?.exitPushMode(reason)
+    fun getRegistrationState(): RegistrationState {
+        return if (isInitialized) {
+            StateManager.getCurrentRegistrationState()
+        } else {
+            RegistrationState.NONE
+        }
     }
 
-    /**
-     * Actualiza el user agent
-     */
-    fun updateUserAgent(newUserAgent: String) {
-        checkInitialized()
-        // Implementation depends on SipCoreManager
+    fun hasActiveCall(): Boolean {
+        return isInitialized && (sipCoreManager?.hasActiveCall() ?: false)
     }
 
-    /**
-     * Obtiene configuración actual
-     */
+    fun isCallConnected(): Boolean {
+        return isInitialized && (sipCoreManager?.isCallConnected() ?: false)
+    }
+
+    // ============ FLOWS REACTIVOS ============
+
+    fun getCallStateFlow(): Flow<CallState> {
+        return StateManager.callStateFlow
+    }
+
+    fun getRegistrationStateFlow(): Flow<RegistrationState> {
+        return StateManager.registrationStateFlow
+    }
+
+    fun getAudioStateFlow(): Flow<StateManager.AudioState> {
+        return StateManager.audioStateFlow
+    }
+
+    // ============ CONFIGURACIÓN ============
+
     fun getCurrentConfig(): SipConfig = config
 
-    /**
-     * Actualiza configuración dinámicamente
-     */
-    fun updateConfig(newConfig: SipConfig) {
-        checkInitialized()
-        this.config = newConfig
-        lifecycleManager?.updateConfig(newConfig)
-    }
-
-    // ============ ESTADÍSTICAS Y CALIDAD ============
-
-    /**
-     * Obtiene estadísticas de la llamada actual
-     */
-    fun getCurrentCallStatistics(): CallStatistics? {
-        checkInitialized()
-        return sipCoreManager?.getCurrentCallStatistics() as CallStatistics?
-    }
-
-    /**
-     * Obtiene calidad de red actual
-     */
-    fun getNetworkQuality(): NetworkQuality? {
-        checkInitialized()
-        return sipCoreManager?.getNetworkQuality()
-    }
-
-    // ============ HISTORIAL DE LLAMADAS ============
-
-    /**
-     * Obtiene el historial de llamadas
-     */
-    fun getCallLogs(): List<CallLog> {
-        checkInitialized()
-        return sipCoreManager?.callHistoryManager?.getAllCallLogs() ?: emptyList()
-    }
-
-    /**
-     * Limpia el historial de llamadas
-     */
-    fun clearCallLogs() {
-        checkInitialized()
-        sipCoreManager?.callHistoryManager?.clearCallLogs()
-    }
-
-    // ============ DIAGNÓSTICO Y SALUD ============
-
-    /**
-     * Obtiene reporte de salud del sistema
-     */
-    fun getSystemHealthReport(): String {
-        checkInitialized()
-        return buildString {
-            appendLine("=== EddysSipLibrary v2.0.0 Health Report ===")
-            appendLine("Initialized: $isInitialized")
-            appendLine("Active Listeners: ${runBlocking { eventDispatcher.getListenerCount() }}")
-            appendLine("Call State: ${getCurrentCallState()}")
-            appendLine("Registration State: ${getRegistrationState()}")
-            appendLine("Ringtone Enabled: ${isRingtoneEnabled()}")
-            appendLine("Audio Muted: ${isMuted()}")
-            appendLine("")
-            appendLine("=== Audio Diagnosis ===")
-            appendLine(diagnoseAudioIssues())
+    suspend fun updateConfig(newConfig: SipConfig): Result<Unit> {
+        return executeWithErrorHandling("updateConfig") {
+            this.config = newConfig
+            // Aplicar cambios si es necesario
+            Unit
         }
     }
 
-    /**
-     * Verifica si el sistema está saludable
-     */
+    // ============ DIAGNÓSTICO ============
+
+    fun getSystemHealthReport(): String {
+        return buildString {
+            appendLine("=== EddysSipLibrary v3.0.0 Health Report ===")
+            appendLine("Initialized: $isInitialized")
+            appendLine("Active Listeners: ${GlobalEventBus.getListenerCount()}")
+            appendLine("Call State: ${getCurrentCallState()}")
+            appendLine("Registration State: ${getRegistrationState()}")
+            appendLine("Has Active Call: ${hasActiveCall()}")
+            appendLine("Is Call Connected: ${isCallConnected()}")
+            appendLine("")
+            if (isInitialized) {
+                appendLine("=== Audio Diagnosis ===")
+                appendLine(sipCoreManager?.getAudioManager()?.diagnoseAudioIssues() ?: "Audio manager not available")
+            }
+        }
+    }
+
     fun isSystemHealthy(): Boolean {
-        checkInitialized()
         return try {
-            isInitialized &&
-                    sipCoreManager != null &&
-                    runBlocking { eventDispatcher.getListenerCount() } >= 0
+            isInitialized && sipCoreManager != null
         } catch (e: Exception) {
             false
         }
@@ -711,19 +400,33 @@ class EddysSipLibrary private constructor() {
 
     private fun checkInitialized() {
         if (!isInitialized || sipCoreManager == null) {
-            throw SipLibraryException("Library not initialized. Call initialize() first.")
+            throw SipLibraryException(
+                "Library not initialized. Call initialize() first.",
+                SipError(ErrorCodes.NOT_INITIALIZED, "Library not initialized", ErrorCategory.CONFIGURATION)
+            )
         }
     }
 
-    private fun setupInternalCallbacks() {
-        sipCoreManager?.onCallTerminated = {
-            CoroutineScope(Dispatchers.IO).launch {
-                eventDispatcher.onCallDisconnected(
-                    callId = StateManager.getCurrentCallId(),
-                    reason = CallEndReason.USER_HANGUP,
-                    duration = StateManager.getCurrentCallDuration()
-                )
-            }
+    private inline fun <T> executeWithErrorHandling(
+        operation: String,
+        block: () -> T
+    ): Result<T> {
+        return try {
+            Result.success(block())
+        } catch (e: SipLibraryException) {
+            log.e(tag = TAG) { "Error in $operation: ${e.message}" }
+            GlobalEventBus.emit(SipEvent.Error(e.sipError))
+            Result.failure(e)
+        } catch (e: Exception) {
+            log.e(tag = TAG) { "Unexpected error in $operation: ${e.message}" }
+            val error = SipError(
+                code = ErrorCodes.UNEXPECTED_ERROR,
+                message = "Unexpected error in $operation: ${e.message}",
+                category = ErrorCategory.CONFIGURATION,
+                cause = e
+            )
+            GlobalEventBus.emit(SipEvent.Error(error))
+            Result.failure(SipLibraryException("Unexpected error in $operation", error, e))
         }
     }
 
@@ -732,23 +435,743 @@ class EddysSipLibrary private constructor() {
      */
     fun dispose() {
         if (isInitialized) {
-            CoroutineScope(Dispatchers.IO).launch {
-                eventDispatcher.clearListeners()
-            }
-            lifecycleManager?.dispose()
+            GlobalEventBus.emit(SipEvent.LibraryDisposed)
             sipCoreManager?.dispose()
             sipCoreManager = null
-            lifecycleManager = null
+            GlobalEventBus.dispose()
             isInitialized = false
             log.d(tag = TAG) { "EddysSipLibrary disposed" }
         }
     }
-
-    /**
-     * Excepción personalizada para la biblioteca
-     */
-    class SipLibraryException(message: String, cause: Throwable? = null) : Exception(message, cause)
 }
+/**
+ * EddysSipLibrary - Biblioteca SIP/VoIP optimizada para Android
+ *
+ * Versión mejorada con interfaces, múltiples listeners y mejor arquitectura
+ *
+ * @author Eddys Larez
+ * @version 2.0.0
+ */
+//class EddysSipLibrary private constructor() {
+//
+//    private var sipCoreManager: SipCoreManager? = null
+//    private var isInitialized = false
+//    private lateinit var config: SipConfig
+//    private val eventDispatcher = SipEventDispatcher()
+//    private var lifecycleManager: AppLifecycleManager? = null
+//
+//    companion object {
+//        @Volatile
+//        private var INSTANCE: EddysSipLibrary? = null
+//        private const val TAG = "EddysSipLibrary"
+//
+//        /**
+//         * Obtiene la instancia singleton de la biblioteca
+//         */
+//        fun getInstance(): EddysSipLibrary {
+//            return INSTANCE ?: synchronized(this) {
+//                INSTANCE ?: EddysSipLibrary().also { INSTANCE = it }
+//            }
+//        }
+//    }
+//
+//    /**
+//     * Configuración completa de la biblioteca con soporte para ringtone
+//     */
+//    data class SipConfig(
+//        val defaultDomain: String = "",
+//        val webSocketUrl: String = "",
+//        val userAgent: String = "EddysSipLibrary/2.0.0",
+//        val enableLogs: Boolean = true,
+//        val enableAutoReconnect: Boolean = true,
+//        val pingIntervalMs: Long = 30000L,
+//        val registrationExpiresSeconds: Int = 3600,
+//
+//        // Configuración automática de push
+//        val autoEnterPushOnBackground: Boolean = true,
+//        val autoExitPushOnForeground: Boolean = true,
+//        val autoDisconnectWebSocketOnBackground: Boolean = false,
+//        val pushReconnectDelayMs: Long = 2000L,
+//
+//        // Configuración de audio
+//        val autoSelectAudioDevice: Boolean = true,
+//        val preferredAudioDevice: AudioDeviceType = AudioDeviceType.EARPIECE,
+//        val enableEchoCancellation: Boolean = true,
+//        val enableNoiseSuppression: Boolean = true,
+//
+//        // Configuración de llamadas
+//        val autoAcceptDelay: Long = 0L, // 0 = manual, >0 = auto accept after delay
+//        val callTimeoutSeconds: Int = 60,
+//        val enableCallRecording: Boolean = false,
+//
+//        // Configuración de ringtone
+//        val ringtoneConfig: RingtoneConfig = RingtoneConfig(),
+//
+//        // Headers personalizados
+//        val customHeaders: Map<String, String> = emptyMap(),
+//        val customContactParams: Map<String, String> = emptyMap()
+//    )
+//
+//    /**
+//     * Tipos de dispositivos de audio
+//     */
+//    enum class AudioDeviceType {
+//        EARPIECE,
+//        SPEAKER,
+//        BLUETOOTH,
+//        WIRED_HEADSET,
+//        AUTO
+//    }
+//
+//    /**
+//     * Estados de la aplicación
+//     */
+//    enum class AppState {
+//        FOREGROUND,
+//        BACKGROUND,
+//        TERMINATED
+//    }
+//
+//    /**
+//     * Razones de finalización de llamada
+//     */
+//    enum class CallEndReason {
+//        USER_HANGUP,
+//        REMOTE_HANGUP,
+//        BUSY,
+//        DECLINED,
+//        TIMEOUT,
+//        NETWORK_ERROR,
+//        SERVER_ERROR,
+//        CANCELLED
+//    }
+//
+//    /**
+//     * Calidad de red
+//     */
+//    data class NetworkQuality(
+//        val score: Float, // 0.0 - 1.0
+//        val latency: Long,
+//        val packetLoss: Float,
+//        val jitter: Long
+//    )
+//
+//    /**
+//     * Errores de SIP
+//     */
+//    data class SipError(
+//        val code: Int,
+//        val message: String,
+//        val category: ErrorCategory,
+//        val timestamp: Long = Clock.System.now().toEpochMilliseconds()
+//    )
+//
+//    /**
+//     * Advertencias de SIP
+//     */
+//    data class SipWarning(
+//        val message: String,
+//        val category: WarningCategory,
+//        val timestamp: Long = Clock.System.now().toEpochMilliseconds()
+//    )
+//
+//    enum class ErrorCategory {
+//        NETWORK,
+//        AUTHENTICATION,
+//        AUDIO,
+//        SIP_PROTOCOL,
+//        WEBRTC,
+//        CONFIGURATION
+//    }
+//
+//    enum class WarningCategory {
+//        AUDIO_QUALITY,
+//        NETWORK_QUALITY,
+//        BATTERY_OPTIMIZATION,
+//        PERMISSION
+//    }
+//
+//    /**
+//     * Inicializa la biblioteca SIP
+//     *
+//     * @param application Instancia de la aplicación Android
+//     * @param config Configuración de la biblioteca
+//     */
+//    fun initialize(
+//        application: Application,
+//        config: SipConfig = SipConfig()
+//    ) {
+//        if (isInitialized) {
+//            log.w(tag = TAG) { "Library already initialized" }
+//            return
+//        }
+//
+//        try {
+//            log.d(tag = TAG) { "Initializing EddysSipLibrary v2.0.0 by Eddys Larez" }
+//
+//            this.config = config
+//
+//            // Inicializar gestor de ciclo de vida
+//            lifecycleManager = AppLifecycleManager(application, config, eventDispatcher)
+//
+//            // Crear Enhanced SipCoreManager
+//            sipCoreManager = SipCoreManager.createInstance(application, config, eventDispatcher)
+//            sipCoreManager?.initialize()
+//
+//            // Configurar callbacks internos
+//            setupInternalCallbacks()
+//
+//            isInitialized = true
+//            log.d(tag = TAG) { "EddysSipLibrary initialized successfully" }
+//
+//        } catch (e: Exception) {
+//            log.e(tag = TAG) { "Error initializing library: ${e.message}" }
+//            CoroutineScope(Dispatchers.IO).launch {
+//                eventDispatcher.onError(SipError(
+//                    code = -1,
+//                    message = "Failed to initialize library: ${e.message}",
+//                    category = ErrorCategory.CONFIGURATION
+//                ))
+//            }
+//            throw SipLibraryException("Failed to initialize library", e)
+//        }
+//    }
+//
+//    // ============ GESTIÓN DE LISTENERS ============
+//
+//    /**
+//     * Agrega un listener para eventos SIP
+//     */
+//    suspend fun addEventListener(listener: SipEventListener) {
+//        checkInitialized()
+//        eventDispatcher.addListener(listener)
+//        log.d(tag = TAG) { "Event listener added" }
+//    }
+//
+//    /**
+//     * Remueve un listener de eventos SIP
+//     */
+//    suspend fun removeEventListener(listener: SipEventListener) {
+//        checkInitialized()
+//        eventDispatcher.removeListener(listener)
+//        log.d(tag = TAG) { "Event listener removed" }
+//    }
+//
+//    /**
+//     * Limpia todos los listeners
+//     */
+//    suspend fun clearEventListeners() {
+//        checkInitialized()
+//        eventDispatcher.clearListeners()
+//        log.d(tag = TAG) { "All event listeners cleared" }
+//    }
+//
+//    /**
+//     * Obtiene la cantidad de listeners registrados
+//     */
+//    suspend fun getListenerCount(): Int {
+//        checkInitialized()
+//        return eventDispatcher.getListenerCount()
+//    }
+//
+//    // ============ GESTIÓN DE LLAMADAS (usando CallManager interface) ============
+//
+//    /**
+//     * Realiza una llamada
+//     */
+//    suspend fun makeCall(
+//        phoneNumber: String,
+//        username: String? = null,
+//        domain: String? = null,
+//        customHeaders: Map<String, String> = emptyMap()
+//    ) {
+//        checkInitialized()
+//
+//        val finalUsername = username ?: sipCoreManager?.getCurrentUsername()
+//        val finalDomain = domain ?: config.defaultDomain
+//
+//        if (finalUsername == null) {
+//            val error = SipError(
+//                code = 1001,
+//                message = "No registered account available for calling",
+//                category = ErrorCategory.CONFIGURATION
+//            )
+//            eventDispatcher.onError(error)
+//            throw SipLibraryException("No registered account available for calling")
+//        }
+//
+//        sipCoreManager?.makeCall(phoneNumber, finalUsername, finalDomain, customHeaders)
+//    }
+//
+//    /**
+//     * Acepta una llamada entrante
+//     */
+//    suspend fun acceptCall() {
+//        checkInitialized()
+//        sipCoreManager?.acceptCall()
+//    }
+//
+//    /**
+//     * Rechaza una llamada entrante
+//     */
+//    suspend fun declineCall() {
+//        checkInitialized()
+//        sipCoreManager?.declineCall()
+//    }
+//
+//    /**
+//     * Termina la llamada actual
+//     */
+//    suspend fun endCall() {
+//        checkInitialized()
+//        sipCoreManager?.endCall()
+//    }
+//
+//    /**
+//     * Pone en espera la llamada actual
+//     */
+//    suspend fun holdCall() {
+//        checkInitialized()
+//        sipCoreManager?.holdCall()
+//    }
+//
+//    /**
+//     * Reanuda una llamada en espera
+//     */
+//    suspend fun resumeCall() {
+//        checkInitialized()
+//        sipCoreManager?.resumeCall()
+//    }
+//
+//    // ============ GESTIÓN DE AUDIO ============
+//
+//    /**
+//     * Obtiene todos los dispositivos de audio disponibles
+//     */
+//    suspend fun getAudioDevices(): Pair<List<AudioDevice>, List<AudioDevice>> {
+//        checkInitialized()
+//        val audioManager = sipCoreManager?.getAudioManager()
+//        val inputDevices = audioManager?.getAudioInputDevices() ?: emptyList()
+//        val outputDevices = audioManager?.getAudioOutputDevices() ?: emptyList()
+//
+//        eventDispatcher.onAudioDevicesAvailable(inputDevices, outputDevices)
+//        return Pair(inputDevices, outputDevices)
+//    }
+//
+//    /**
+//     * Cambia el dispositivo de audio de entrada
+//     */
+//    fun changeAudioInputDevice(device: AudioDevice): Boolean {
+//        checkInitialized()
+//        val audioManager = sipCoreManager?.getAudioManager()
+//        val oldDevice = audioManager?.getCurrentInputDevice()
+//        val success = audioManager?.changeAudioInputDevice(device) ?: false
+//        if (success) {
+//            CoroutineScope(Dispatchers.IO).launch {
+//                eventDispatcher.onAudioDeviceChanged(oldDevice, device)
+//            }
+//        }
+//        return success
+//    }
+//
+//    /**
+//     * Cambia el dispositivo de audio de salida
+//     */
+//    fun changeAudioOutputDevice(device: AudioDevice): Boolean {
+//        checkInitialized()
+//        val audioManager = sipCoreManager?.getAudioManager()
+//        val oldDevice = audioManager?.getCurrentOutputDevice()
+//        val success = audioManager?.changeAudioOutputDevice(device) ?: false
+//        if (success) {
+//            CoroutineScope(Dispatchers.IO).launch {
+//                eventDispatcher.onAudioDeviceChanged(oldDevice, device)
+//            }
+//        }
+//        return success
+//    }
+//
+//    /**
+//     * Obtiene el dispositivo de entrada actual
+//     */
+//    fun getCurrentInputDevice(): AudioDevice? {
+//        checkInitialized()
+//        return sipCoreManager?.getAudioManager()?.getCurrentInputDevice()
+//    }
+//
+//    /**
+//     * Obtiene el dispositivo de salida actual
+//     */
+//    fun getCurrentOutputDevice(): AudioDevice? {
+//        checkInitialized()
+//        return sipCoreManager?.getAudioManager()?.getCurrentOutputDevice()
+//    }
+//
+//    /**
+//     * Alterna el estado de mute del micrófono
+//     */
+//    fun toggleMute() {
+//        checkInitialized()
+//        val audioManager = sipCoreManager?.getAudioManager()
+//        val wasMuted = audioManager?.isMuted() ?: false
+//        audioManager?.setMuted(!wasMuted)
+//
+//        CoroutineScope(Dispatchers.IO).launch {
+//            eventDispatcher.onMuteStateChanged(!wasMuted)
+//        }
+//    }
+//
+//    /**
+//     * Verifica si el micrófono está en mute
+//     */
+//    fun isMuted(): Boolean {
+//        checkInitialized()
+//        return sipCoreManager?.getAudioManager()?.isMuted() ?: false
+//    }
+//
+//    /**
+//     * Diagnostica problemas de audio
+//     */
+//    fun diagnoseAudioIssues(): String {
+//        checkInitialized()
+//        return sipCoreManager?.getAudioManager()?.diagnoseAudioIssues() ?: "Audio manager not available"
+//    }
+//
+//    // ============ GESTIÓN DE RINGTONE ============
+//
+//    /**
+//     * Actualiza la configuración de ringtone
+//     */
+//    fun updateRingtoneConfig(ringtoneConfig: RingtoneConfig) {
+//        checkInitialized()
+//        sipCoreManager?.updateRingtoneConfig(ringtoneConfig)
+//
+//        // Update config
+//        this.config = this.config.copy(ringtoneConfig = ringtoneConfig)
+//    }
+//
+//    /**
+//     * Habilita o deshabilita los ringtones
+//     */
+//    fun setRingtoneEnabled(enabled: Boolean) {
+//        checkInitialized()
+//        sipCoreManager?.getRingtoneManager()?.setRingtoneEnabled(enabled)
+//    }
+//
+//    /**
+//     * Verifica si los ringtones están habilitados
+//     */
+//    fun isRingtoneEnabled(): Boolean {
+//        checkInitialized()
+//        return sipCoreManager?.getRingtoneManager()?.isRingtoneEnabled() ?: true
+//    }
+//
+//    /**
+//     * Detiene todos los ringtones manualmente
+//     */
+//    fun stopAllRingtones() {
+//        checkInitialized()
+//        sipCoreManager?.getRingtoneManager()?.stopAllRingtones()
+//    }
+//
+//    // ============ DTMF ============
+//
+//    /**
+//     * Envía un dígito DTMF
+//     */
+//    fun sendDtmf(digit: Char, duration: Int = 160): Boolean {
+//        checkInitialized()
+//        return sipCoreManager?.sendDtmf(digit, duration) ?: false
+//    }
+//
+//    /**
+//     * Envía una secuencia de dígitos DTMF
+//     */
+//    fun sendDtmfSequence(digits: String, duration: Int = 160): Boolean {
+//        checkInitialized()
+//        return sipCoreManager?.sendDtmfSequence(digits, duration) ?: false
+//    }
+//
+//    // ============ ESTADO Y FLUJOS REACTIVOS ============
+//
+//    /**
+//     * Obtiene el estado actual de la llamada
+//     */
+//    fun getCurrentCallState(): CallState {
+//        checkInitialized()
+//        return StateManager.getCurrentCallState()
+//    }
+//
+//    /**
+//     * Obtiene el estado actual de registro
+//     */
+//    fun getRegistrationState(): RegistrationState {
+//        checkInitialized()
+//        return StateManager.getCurrentRegistrationState()
+//    }
+//
+//    /**
+//     * Verifica si hay una llamada activa
+//     */
+//    fun hasActiveCall(): Boolean {
+//        checkInitialized()
+//        return sipCoreManager?.hasActiveCall() ?: false
+//    }
+//
+//    /**
+//     * Verifica si hay una llamada conectada
+//     */
+//    fun isCallConnected(): Boolean {
+//        checkInitialized()
+//        return sipCoreManager?.isCallConnected() ?: false
+//    }
+//
+//    /**
+//     * Obtiene el flow reactivo del estado de llamada
+//     */
+//    fun getCallStateFlow(): Flow<CallState> {
+//        checkInitialized()
+//        return StateManager.callStateFlow
+//    }
+//
+//    /**
+//     * Obtiene el flow reactivo del estado de registro
+//     */
+//    fun getRegistrationStateFlow(): Flow<RegistrationState> {
+//        checkInitialized()
+//        return StateManager.registrationStateFlow
+//    }
+//
+//    /**
+//     * Obtiene el flow reactivo del estado de audio
+//     */
+//    fun getAudioStateFlow(): Flow<StateManager.AudioState> {
+//        checkInitialized()
+//        return StateManager.audioStateFlow
+//    }
+//
+//    /**
+//     * Obtiene el flow reactivo del estado de ringtone
+//     */
+//    fun getRingtoneStateFlow(): Flow<StateManager.RingtoneState> {
+//        checkInitialized()
+//        return StateManager.ringtoneStateFlow
+//    }
+//
+//    /**
+//     * Obtiene el flow reactivo del estado de red
+//     */
+//    fun getNetworkStateFlow(): Flow<StateManager.NetworkState> {
+//        checkInitialized()
+//        return StateManager.networkStateFlow
+//    }
+//
+//    // ============ REGISTRO Y CONEXIÓN ============
+//
+//    /**
+//     * Registra una cuenta SIP
+//     */
+//    fun registerAccount(
+//        username: String,
+//        password: String,
+//        domain: String? = null,
+//        pushToken: String? = null,
+//        pushProvider: String = "fcm",
+//        customHeaders: Map<String, String> = emptyMap(),
+//        expires: Int? = null
+//    ) {
+//        checkInitialized()
+//
+//        val finalDomain = domain ?: config.defaultDomain
+//        val finalExpires = expires ?: config.registrationExpiresSeconds
+//        val finalHeaders = config.customHeaders + customHeaders
+//
+//        sipCoreManager?.register(
+//            username = username,
+//            password = password,
+//            domain = finalDomain,
+//            provider = pushProvider,
+//            token = pushToken ?: "",
+//            customHeaders = finalHeaders,
+//            expires = finalExpires
+//        )
+//    }
+//
+//    /**
+//     * Desregistra una cuenta SIP
+//     */
+//    fun unregisterAccount(username: String, domain: String? = null) {
+//        checkInitialized()
+//        val finalDomain = domain ?: config.defaultDomain
+//        // Implementation depends on SipCoreManager
+//    }
+//
+//    // ============ CONFIGURACIÓN Y MODO PUSH ============
+//
+//    /**
+//     * Actualiza la configuración de push notifications
+//     */
+//    fun updatePushConfiguration(
+//        token: String,
+//        provider: String = "fcm",
+//        customParams: Map<String, String> = emptyMap()
+//    ) {
+//        checkInitialized()
+//        CoroutineScope(Dispatchers.IO).launch {
+//            eventDispatcher.onPushTokenUpdated(token, provider)
+//        }
+//    }
+//
+//    /**
+//     * Entra en modo push
+//     */
+//    fun enterPushMode(reason: String = "Manual") {
+//        checkInitialized()
+//        sipCoreManager?.enterPushMode(reason)
+//    }
+//
+//    /**
+//     * Sale del modo push
+//     */
+//    fun exitPushMode(reason: String = "Manual") {
+//        checkInitialized()
+//        sipCoreManager?.exitPushMode(reason)
+//    }
+//
+//    /**
+//     * Actualiza el user agent
+//     */
+//    fun updateUserAgent(newUserAgent: String) {
+//        checkInitialized()
+//        // Implementation depends on SipCoreManager
+//    }
+//
+//    /**
+//     * Obtiene configuración actual
+//     */
+//    fun getCurrentConfig(): SipConfig = config
+//
+//    /**
+//     * Actualiza configuración dinámicamente
+//     */
+//    fun updateConfig(newConfig: SipConfig) {
+//        checkInitialized()
+//        this.config = newConfig
+//        lifecycleManager?.updateConfig(newConfig)
+//    }
+//
+//    // ============ ESTADÍSTICAS Y CALIDAD ============
+//
+//    /**
+//     * Obtiene estadísticas de la llamada actual
+//     */
+//    fun getCurrentCallStatistics(): CallStatistics? {
+//        checkInitialized()
+//        return sipCoreManager?.getCurrentCallStatistics() as CallStatistics?
+//    }
+//
+//    /**
+//     * Obtiene calidad de red actual
+//     */
+//    fun getNetworkQuality(): NetworkQuality? {
+//        checkInitialized()
+//        return sipCoreManager?.getNetworkQuality()
+//    }
+//
+//    // ============ HISTORIAL DE LLAMADAS ============
+//
+//    /**
+//     * Obtiene el historial de llamadas
+//     */
+//    fun getCallLogs(): List<CallLog> {
+//        checkInitialized()
+//        return sipCoreManager?.callHistoryManager?.getAllCallLogs() ?: emptyList()
+//    }
+//
+//    /**
+//     * Limpia el historial de llamadas
+//     */
+//    fun clearCallLogs() {
+//        checkInitialized()
+//        sipCoreManager?.callHistoryManager?.clearCallLogs()
+//    }
+//
+//    // ============ DIAGNÓSTICO Y SALUD ============
+//
+//    /**
+//     * Obtiene reporte de salud del sistema
+//     */
+//    fun getSystemHealthReport(): String {
+//        checkInitialized()
+//        return buildString {
+//            appendLine("=== EddysSipLibrary v2.0.0 Health Report ===")
+//            appendLine("Initialized: $isInitialized")
+//            appendLine("Active Listeners: ${runBlocking { eventDispatcher.getListenerCount() }}")
+//            appendLine("Call State: ${getCurrentCallState()}")
+//            appendLine("Registration State: ${getRegistrationState()}")
+//            appendLine("Ringtone Enabled: ${isRingtoneEnabled()}")
+//            appendLine("Audio Muted: ${isMuted()}")
+//            appendLine("")
+//            appendLine("=== Audio Diagnosis ===")
+//            appendLine(diagnoseAudioIssues())
+//        }
+//    }
+//
+//    /**
+//     * Verifica si el sistema está saludable
+//     */
+//    fun isSystemHealthy(): Boolean {
+//        checkInitialized()
+//        return try {
+//            isInitialized &&
+//                    sipCoreManager != null &&
+//                    runBlocking { eventDispatcher.getListenerCount() } >= 0
+//        } catch (e: Exception) {
+//            false
+//        }
+//    }
+//
+//    // ============ MÉTODOS PRIVADOS ============
+//
+//    private fun checkInitialized() {
+//        if (!isInitialized || sipCoreManager == null) {
+//            throw SipLibraryException("Library not initialized. Call initialize() first.")
+//        }
+//    }
+//
+//    private fun setupInternalCallbacks() {
+//        sipCoreManager?.onCallTerminated = {
+//            CoroutineScope(Dispatchers.IO).launch {
+//                eventDispatcher.onCallDisconnected(
+//                    callId = StateManager.getCurrentCallId(),
+//                    reason = CallEndReason.USER_HANGUP,
+//                    duration = StateManager.getCurrentCallDuration()
+//                )
+//            }
+//        }
+//    }
+//
+//    /**
+//     * Libera recursos de la biblioteca
+//     */
+//    fun dispose() {
+//        if (isInitialized) {
+//            CoroutineScope(Dispatchers.IO).launch {
+//                eventDispatcher.clearListeners()
+//            }
+//            lifecycleManager?.dispose()
+//            sipCoreManager?.dispose()
+//            sipCoreManager = null
+//            lifecycleManager = null
+//            isInitialized = false
+//            log.d(tag = TAG) { "EddysSipLibrary disposed" }
+//        }
+//    }
+//
+//    /**
+//     * Excepción personalizada para la biblioteca
+//     */
+//    class SipLibraryException(message: String, cause: Throwable? = null) : Exception(message, cause)
+//}
 
 
 //

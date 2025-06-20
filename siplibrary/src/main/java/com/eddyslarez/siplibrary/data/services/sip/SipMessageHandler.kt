@@ -668,7 +668,6 @@ import kotlinx.datetime.Clock
  */
 class SipMessageHandler(
     private val sipCoreManager: SipCoreManager,
-    private val eventDispatcher: SipEventDispatcher
 ) {
     var onCallTerminated: (() -> Unit) = {}
 

@@ -8,7 +8,7 @@ import com.eddyslarez.siplibrary.data.models.CallState
  * @author Eddys Larez
  */
 interface CallManager {
-    suspend fun makeCall(phoneNumber: String, username: String, domain: String, customHeaders: Map<String, String> = emptyMap())
+    suspend fun makeCall(phoneNumber: String, username: String, domain: String, customHeaders: Map<String, String> = emptyMap()): String
     suspend fun acceptCall()
     suspend fun declineCall()
     suspend fun endCall()

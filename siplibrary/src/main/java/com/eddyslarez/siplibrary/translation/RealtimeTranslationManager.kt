@@ -59,11 +59,11 @@ class RealtimeTranslationManager(
 
             if (config.openAiApiKey.isBlank()) {
                 log.e(tag = TAG) { "OpenAI API key is required" }
-                eventDispatcher.onError(EddysSipLibrary.SipError(
-                    code = 5001,
-                    message = "OpenAI API key is required for translation",
-                    category = EddysSipLibrary.ErrorCategory.CONFIGURATION
-                ))
+//                eventDispatcher.onError(EddysSipLibrary.SipError(
+//                    code = 5001,
+//                    message = "OpenAI API key is required for translation",
+//                    category = EddysSipLibrary.ErrorCategory.CONFIGURATION
+//                ))
                 return false
             }
 
@@ -87,11 +87,11 @@ class RealtimeTranslationManager(
             true
         } catch (e: Exception) {
             log.e(tag = TAG) { "Error initializing translation: ${e.message}" }
-            eventDispatcher.onError(EddysSipLibrary.SipError(
-                code = 5002,
-                message = "Failed to initialize translation: ${e.message}",
-                category = EddysSipLibrary.ErrorCategory.CONFIGURATION
-            ))
+//            eventDispatcher.onError(EddysSipLibrary.SipError(
+//                code = 5002,
+//                message = "Failed to initialize translation: ${e.message}",
+//                category = EddysSipLibrary.ErrorCategory.CONFIGURATION
+//            ))
             false
         }
     }
@@ -134,11 +134,11 @@ class RealtimeTranslationManager(
             true
         } catch (e: Exception) {
             log.e(tag = TAG) { "Error starting translation: ${e.message}" }
-            eventDispatcher.onError(EddysSipLibrary.SipError(
-                code = 5003,
-                message = "Failed to start translation: ${e.message}",
-                category = EddysSipLibrary.ErrorCategory.SIP_PROTOCOL
-            ))
+//            eventDispatcher.onError(EddysSipLibrary.SipError(
+//                code = 5003,
+//                message = "Failed to start translation: ${e.message}",
+//                category = EddysSipLibrary.ErrorCategory.SIP_PROTOCOL
+//            ))
             false
         }
     }
@@ -314,11 +314,11 @@ class RealtimeTranslationManager(
 
             is OpenAIRealtimeClient.RealtimeEvent.Error -> {
                 log.e(tag = TAG) { "OpenAI error: ${event.message}" }
-                eventDispatcher.onError(EddysSipLibrary.SipError(
-                    code = 5004,
-                    message = "OpenAI translation error: ${event.message}",
-                    category = EddysSipLibrary.ErrorCategory.SIP_PROTOCOL
-                ))
+//                eventDispatcher.onError(EddysSipLibrary.SipError(
+//                    code = 5004,
+//                    message = "OpenAI translation error: ${event.message}",
+//                    category = EddysSipLibrary.ErrorCategory.SIP_PROTOCOL
+//                ))
             }
 
             is OpenAIRealtimeClient.RealtimeEvent.Disconnected -> {

@@ -15,6 +15,11 @@ import com.eddyslarez.siplibrary.data.services.sip.SipMessageHandler
 import com.eddyslarez.siplibrary.data.services.websocket.MultiplatformWebSocket
 import com.eddyslarez.siplibrary.data.services.websocket.WebSocket
 import com.eddyslarez.siplibrary.data.store.SettingsDataStore
+import com.eddyslarez.siplibrary.error.ErrorCategory
+import com.eddyslarez.siplibrary.error.ErrorCodes
+import com.eddyslarez.siplibrary.error.SipError
+import com.eddyslarez.siplibrary.error.SipLibraryException
+import com.eddyslarez.siplibrary.events.SipEvent
 import com.eddyslarez.siplibrary.interfaces.CallManager
 import com.eddyslarez.siplibrary.interfaces.SipEventListener
 import com.eddyslarez.siplibrary.models.CallStatistics
@@ -27,6 +32,1068 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
 
+//
+///**
+// * Enhanced SIP Core Manager - Gestor principal del core SIP con funcionalidades extendidas
+// *
+// * @author Eddys Larez
+// */
+//class SipCoreManager private constructor(
+///**
+// * Enhanced SIP Core Manager con interfaces y múltiples listeners
+// *
+// * @author Eddys Larez
+// */
+//class SipCoreManager private constructor(
+//    private val application: Application,
+//    private val config: EddysSipLibrary.SipConfig,
+//    private val eventDispatcher: SipEventDispatcher,
+//    private val audioManager: EnhancedAudioDeviceManager,
+//    private val ringtoneManager: EnhancedRingtoneManager,
+//    private val windowManager: WindowManager,
+//    private val platformInfo: PlatformInfo,
+//    private val settingsDataStore: SettingsDataStore,
+//) : CallManager {
+//
+//    private val TAG = "EnhancedSipCoreManager"
+//
+//    // Core managers
+//    val callHistoryManager = CallHistoryManager()
+//    private val messageHandler: SipMessageHandler by lazy {
+//        SipMessageHandler(this, eventDispatcher)
+//    }
+//
+//    // WebRTC and networking
+//    val webRtcManager = WebRtcManagerFactory.createWebRtcManager(application)
+//    private val platformRegistration = PlatformRegistration(application)
+//    private val callHoldManager = CallHoldManager(webRtcManager)
+//
+//    // State management
+//    private val activeAccounts = HashMap<String, AccountInfo>()
+//    private var currentAccountInfo: AccountInfo? = null
+//    private var reconnectionInProgress = false
+//    private var lastConnectionCheck = 0L
+//    private val connectionCheckInterval = 30000L
+//
+//    // DTMF management
+//    private val dtmfQueue = mutableListOf<DtmfRequest>()
+//    private var isDtmfProcessing = false
+//    private val dtmfMutex = Mutex()
+//
+//    // Call management
+//    var onCallTerminated: (() -> Unit)? = null
+//    private var isCallFromPush = false
+//    private var callStartTimeMillis: Long = 0
+//
+//    // Enhanced features
+//    private var isPushMode = false
+//    private var currentUserAgent = config.userAgent
+//    private var customHeaders = config.customHeaders.toMutableMap()
+//    private var networkQualityMonitor: NetworkQualityMonitor? = null
+//    private var callStatistics: CallStatistics? = null
+//
+//    // Scopes para corrutinas
+//    private val coreScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+//    private val uiScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+//
+//    companion object {
+//        private const val WEBSOCKET_PROTOCOL = "sip"
+//        private const val REGISTRATION_CHECK_INTERVAL_MS = 30 * 1000L
+//
+//        fun createInstance(
+//            application: Application,
+//            config: EddysSipLibrary.SipConfig,
+//            eventDispatcher: SipEventDispatcher
+//        ): SipCoreManager {
+//            val audioManager = EnhancedAudioDeviceManager(application, eventDispatcher)
+//            val ringtoneManager = EnhancedRingtoneManager(application, eventDispatcher)
+//
+//            return SipCoreManager(
+//                application = application,
+//                config = config,
+//                eventDispatcher = eventDispatcher,
+//                audioManager = audioManager,
+//                ringtoneManager = ringtoneManager,
+//                windowManager = WindowManager(),
+//                platformInfo = PlatformInfo(),
+//                settingsDataStore = SettingsDataStore(application)
+//            )
+//        }
+//    }
+//
+//    // Public accessors for SipMessageHandler
+//    fun setCurrentAccountInfo(accountInfo: AccountInfo) {
+//        currentAccountInfo = accountInfo
+//    }
+//
+//    fun setCallFromPush(fromPush: Boolean) {
+//        isCallFromPush = fromPush
+//    }
+//
+//    fun setCallStartTime(timeMillis: Long) {
+//        callStartTimeMillis = timeMillis
+//    }
+//
+//    fun getCallStartTime(): Long = callStartTimeMillis
+//
+//    fun bringToFront() {
+//        windowManager.bringToFront()
+//    }
+//
+//    fun initialize() {
+//        log.d(tag = TAG) { "Initializing Enhanced SIP Core Manager" }
+//
+//        webRtcManager.initialize()
+//        setupWebRtcEventListener()
+//        setupPlatformLifecycleObservers()
+//        setupEnhancedFeatures()
+//        startConnectionHealthCheck()
+//        startStateMonitoring()
+//    }
+//
+//    private fun setupEnhancedFeatures() {
+//        networkQualityMonitor = NetworkQualityMonitor { quality ->
+//            coreScope.launch {
+//                eventDispatcher.onNetworkQuality(quality)
+//            }
+//        }
+//
+//        // Inicializar dispositivos de audio
+//        coreScope.launch {
+//            try {
+//                val inputDevices = audioManager.getAudioInputDevices()
+//                val outputDevices = audioManager.getAudioOutputDevices()
+//                StateManager.updateAvailableAudioDevices(inputDevices, outputDevices)
+//                eventDispatcher.onAudioDevicesAvailable(inputDevices, outputDevices)
+//            } catch (e: Exception) {
+//                log.e(tag = TAG) { "Error initializing audio devices: ${e.message}" }
+//            }
+//        }
+//    }
+//    private fun startStateMonitoring() {
+//        // Monitor call state changes - CORREGIDO
+//        coreScope.launch {
+//            StateManager.callStateFlow.collect { newState ->
+//                // Ya no hay loop infinito porque no llamamos updateCallState aquí
+//                log.d(tag = TAG) { "State monitor detected call state: $newState" }
+//                handleCallStateChangeEffects(newState)
+//            }
+//        }
+//
+//        // Monitor registration state changes
+//        coreScope.launch {
+//            StateManager.registrationStateFlow.collect { state ->
+//                log.d(tag = TAG) { "State monitor detected registration state: $state" }
+//                val currentAccount = getCurrentUsername() ?: "unknown"
+//                eventDispatcher.onRegistrationStateChanged(state, currentAccount)
+//                handleRegistrationStateChange(state, currentAccount)
+//            }
+//        }
+//
+//        // Monitor caller number changes - NUEVO
+//        coreScope.launch {
+//            StateManager.callerNumberFlow.collect { number ->
+//                if (number.isNotEmpty()) {
+//                    log.d(tag = TAG) { "Caller number updated: $number" }
+//                }
+//            }
+//        }
+//
+//        // Monitor call duration - NUEVO
+//        coreScope.launch {
+//            StateManager.callDurationFlow.collect { duration ->
+//                if (duration > 0) {
+//                    // Actualizar estadísticas de llamada cada 5 segundos
+//                    if (duration % 5000 == 0L) {
+//                        updateCallStatistics()
+//                    }
+//                }
+//            }
+//        }
+//    }
+//
+////    private fun startStateMonitoring() {
+////        // Monitor call state changes
+////        coreScope.launch {
+////            StateManager.callStateFlow.collect { newState ->
+////                val oldState = StateManager.getCurrentCallState()
+////                if (oldState != newState) {
+////                    val callId = StateManager.getCurrentCallId()
+////                    eventDispatcher.onCallStateChanged(oldState, newState, callId)
+////                    handleCallStateChange(oldState, newState, callId)
+////                }
+////            }
+////        }
+////
+////        // Monitor registration state changes
+////        coreScope.launch {
+////            StateManager.registrationStateFlow.collect { state ->
+////                val currentAccount = getCurrentUsername() ?: "unknown"
+////                eventDispatcher.onRegistrationStateChanged(state, currentAccount)
+////                handleRegistrationStateChange(state, currentAccount)
+////            }
+////        }
+////
+////        // Monitor audio state changes
+////        coreScope.launch {
+////            StateManager.audioStateFlow.collect { audioState ->
+////                // Handle audio state changes
+////                if (audioState.currentInputDevice != null && audioState.currentOutputDevice != null) {
+////                    eventDispatcher.onAudioDeviceChanged(null, audioState.currentOutputDevice!!)
+////                }
+////            }
+////        }
+////
+////        // Monitor ringtone state
+////        coreScope.launch {
+////            StateManager.ringtoneStateFlow.collect { ringtoneState ->
+////                if (!ringtoneState.isEnabled && ringtoneState.isIncomingPlaying) {
+////                    ringtoneManager.stopIncomingRingtone()
+////                }
+////                if (!ringtoneState.isEnabled && ringtoneState.isOutgoingPlaying) {
+////                    ringtoneManager.stopOutgoingRingtone()
+////                }
+////            }
+////        }
+////    }
+//
+//    private suspend fun handleCallStateChange(
+//        oldState: CallState,
+//        newState: CallState,
+//        callId: String
+//    ) {
+//        when (newState) {
+//            CallState.CONNECTED -> {
+//                eventDispatcher.onCallConnected(callId, calculateCallDuration())
+//                startCallStatisticsMonitoring()
+//                // Detener ringtones cuando se conecta
+//                ringtoneManager.stopAllRingtones()
+//            }
+//
+//            CallState.ENDED -> {
+//                val duration = calculateCallDuration()
+//                eventDispatcher.onCallDisconnected(
+//                    callId = callId,
+//                    reason = determineEndReason(oldState),
+//                    duration = duration
+//                )
+//                stopCallStatisticsMonitoring()
+//                // Detener ringtones cuando termina
+//                ringtoneManager.stopAllRingtones()
+//            }
+//
+//            CallState.INCOMING -> {
+//                val callerNumber = StateManager.getCurrentCallerNumber()
+//                eventDispatcher.onIncomingCall(callerNumber, null, callId)
+//                // Reproducir ringtone de entrada
+//                if (config.ringtoneConfig.enableIncomingRingtone) {
+//                    ringtoneManager.playIncomingRingtone()
+//                }
+//            }
+//
+//            CallState.CALLING, CallState.OUTGOING -> {
+//                // Reproducir ringtone de salida
+//                if (config.ringtoneConfig.enableOutgoingRingtone) {
+//                    ringtoneManager.playOutgoingRingtone()
+//                }
+//            }
+//
+//            CallState.RINGING -> {
+//                // Detener ringtone de salida cuando empieza a sonar
+//                ringtoneManager.stopOutgoingRingtone()
+//            }
+//
+//            else -> {}
+//        }
+//    }
+//
+//    private suspend fun handleCallStateChangeEffects(newState: CallState) {
+//        when (newState) {
+//            CallState.INCOMING -> {
+//                // Reproducir ringtone de entrada
+//                if (config.ringtoneConfig.enableIncomingRingtone) {
+//                    ringtoneManager.playIncomingRingtone()
+//                }
+//                eventDispatcher.onIncomingCall(currentAccountInfo?.currentCallData?.from ?: "", null,
+//                    currentAccountInfo?.currentCallData?.callId ?: ""
+//                )
+//
+//                // Auto-accept si está configurado
+//                if (config.autoAcceptDelay > 0) {
+//                    delay(config.autoAcceptDelay)
+//                    if (StateManager.getCurrentCallState() == CallState.INCOMING) {
+//                        acceptCall()
+//                    }
+//                }
+//            }
+//
+//            CallState.CALLING, CallState.OUTGOING -> {
+//                // Reproducir ringtone de salida
+//                if (config.ringtoneConfig.enableOutgoingRingtone) {
+//                    ringtoneManager.playOutgoingRingtone()
+//                }
+//            }
+//
+//            CallState.CONNECTED -> {
+//                // Detener todos los ringtones
+//                ringtoneManager.stopAllRingtones()
+//                startCallStatisticsMonitoring()
+//            }
+//
+//            CallState.ENDED, CallState.DECLINED -> {
+//                // Detener ringtones y limpiar
+//                ringtoneManager.stopAllRingtones()
+//                stopCallStatisticsMonitoring()
+//                clearCallData()
+//            }
+//
+//            CallState.RINGING -> {
+//                // Detener ringtone de salida cuando empieza a sonar del otro lado
+//                ringtoneManager.stopOutgoingRingtone()
+//            }
+//
+//            else -> {}
+//        }
+//    }
+//
+//    private fun clearCallData() {
+//        StateManager.updateCallerNumber("")
+//        StateManager.updateCallId("")
+//        callStatistics = null
+//    }
+//
+//    private suspend fun handleRegistrationStateChange(state: RegistrationState, account: String) {
+//        when (state) {
+//            RegistrationState.OK -> {
+//                eventDispatcher.onRegistrationSuccess(account, config.registrationExpiresSeconds)
+//            }
+//
+//            RegistrationState.FAILED -> {
+//                eventDispatcher.onRegistrationFailed(account, "Registration failed")
+//            }
+//
+//            else -> {}
+//        }
+//    }
+//
+//    private fun setupWebRtcEventListener() {
+//        webRtcManager.setListener(object : WebRtcEventListener {
+//            override fun onIceCandidate(candidate: String, sdpMid: String, sdpMLineIndex: Int) {
+//                // Handle ICE candidate
+//            }
+//
+//            override fun onConnectionStateChange(state: WebRtcConnectionState) {
+//                when (state) {
+//                    WebRtcConnectionState.CONNECTED -> handleWebRtcConnected()
+//                    WebRtcConnectionState.CLOSED -> handleWebRtcClosed()
+//                    else -> {}
+//                }
+//            }
+//
+//            override fun onRemoteAudioTrack() {
+//                log.d(tag = TAG) { "Remote audio track received" }
+//            }
+//
+//            override fun onAudioDeviceChanged(device: AudioDevice) {
+//                log.d(tag = TAG) { "Audio device changed: ${device.name}" }
+//                coreScope.launch {
+//                    eventDispatcher.onAudioDeviceChanged(null, device)
+//                }
+//            }
+//        })
+//    }
+//
+//    private fun setupPlatformLifecycleObservers() {
+//        platformRegistration.setupNotificationObservers(object : AppLifecycleListener {
+//            override fun onEvent(event: AppLifecycleEvent) {
+//                when (event) {
+//                    AppLifecycleEvent.EnterBackground -> {
+//                        StateManager.updateAppState(EddysSipLibrary.AppState.BACKGROUND)
+//                        if (config.autoEnterPushOnBackground) {
+//                            enterPushMode("App entered background")
+//                        }
+//                        refreshAllRegistrationsWithNewUserAgent()
+//                    }
+//
+//                    AppLifecycleEvent.EnterForeground -> {
+//                        StateManager.updateAppState(EddysSipLibrary.AppState.FOREGROUND)
+//                        if (config.autoExitPushOnForeground) {
+//                            exitPushMode("App entered foreground")
+//                        }
+//                        refreshAllRegistrationsWithNewUserAgent()
+//                    }
+//
+//                    else -> {}
+//                }
+//            }
+//        })
+//    }
+//
+//    // Implementación de CallManager interface
+//    override suspend fun makeCall(
+//        phoneNumber: String,
+//        username: String,
+//        domain: String,
+//        customHeaders: Map<String, String>
+//    ) {
+//        val accountKey = "$username@$domain"
+//        val accountInfo = activeAccounts[accountKey] ?: return
+//        currentAccountInfo = accountInfo
+//
+//        if (!accountInfo.isRegistered) {
+//            log.d(tag = TAG) { "Error: Not registered with SIP server" }
+////            eventDispatcher.onError(
+////                EddysSipLibrary.SipError(
+////                    code = 1004,
+////                    message = "Not registered with SIP server",
+////                    category = EddysSipLibrary.ErrorCategory.SIP_PROTOCOL
+////                )
+////            )
+//            return
+//        }
+//
+//        try {
+//            webRtcManager.setAudioEnabled(true)
+//            val sdp = webRtcManager.createOffer()
+//
+//            val callId = generateId()
+//            val callData = CallData(
+//                callId = callId,
+//                to = phoneNumber,
+//                from = accountInfo.username,
+//                direction = CallDirections.OUTGOING,
+//                inviteFromTag = generateSipTag(),
+//                localSdp = sdp
+//            )
+//
+//            accountInfo.currentCallData = callData
+//            StateManager.updateCallState(CallState.CALLING)
+//            StateManager.updateCallerNumber(phoneNumber)
+//            StateManager.updateCallId(callId)
+//
+//            val allHeaders = this.customHeaders + customHeaders
+//            eventDispatcher.onSipMessageSent("INVITE", "OUTGOING")
+//            messageHandler.sendInvite(accountInfo, callData)
+//        } catch (e: Exception) {
+//            log.e(tag = TAG) { "Error creating call: ${e.stackTraceToString()}" }
+//            eventDispatcher.onCallFailed(generateId(), "Failed to create call: ${e.message}", 1005)
+//        }
+//    }
+//
+//    override suspend fun acceptCall() {
+//        val accountInfo = currentAccountInfo ?: return
+//        val callData = accountInfo.currentCallData ?: return
+//
+//        if (callData.direction != CallDirections.INCOMING ||
+//            (StateManager.getCurrentCallState() != CallState.INCOMING &&
+//                    StateManager.getCurrentCallState() != CallState.RINGING)
+//        ) {
+//            return
+//        }
+//
+//        try {
+//            // Detener ringtone inmediatamente al aceptar
+//            ringtoneManager.stopAllRingtones()
+//
+//            if (!webRtcManager.isInitialized()) {
+//                webRtcManager.initialize()
+//                delay(1000)
+//            }
+//
+//            webRtcManager.prepareAudioForIncomingCall()
+//            delay(1000)
+//
+//            val sdp = webRtcManager.createAnswer(accountInfo, callData.remoteSdp ?: "")
+//            callData.localSdp = sdp
+//
+//            messageHandler.sendInviteOkResponse(accountInfo, callData)
+//            delay(500)
+//
+//            webRtcManager.setAudioEnabled(true)
+//            webRtcManager.setMuted(false)
+//
+//            StateManager.updateCallState(CallState.ACCEPTING)
+//        } catch (e: Exception) {
+//            log.e(tag = TAG) { "Error accepting call: ${e.message}" }
+//            eventDispatcher.onCallFailed(
+//                callData.callId,
+//                "Failed to accept call: ${e.message}",
+//                1006
+//            )
+//            declineCall()
+//        }
+//    }
+//
+//    override suspend fun declineCall() {
+//        val accountInfo = currentAccountInfo ?: return
+//        val callData = accountInfo.currentCallData ?: return
+//
+//        if (callData.direction != CallDirections.INCOMING ||
+//            (StateManager.getCurrentCallState() != CallState.INCOMING &&
+//                    StateManager.getCurrentCallState() != CallState.RINGING)
+//        ) {
+//            return
+//        }
+//
+//        // Detener ringtone inmediatamente al declinar
+//        ringtoneManager.stopAllRingtones()
+//
+//        if (callData.toTag?.isEmpty() == true) {
+//            callData.toTag = generateId()
+//        }
+//
+//        messageHandler.sendDeclineResponse(accountInfo, callData)
+//
+//        val endTime = Clock.System.now().toEpochMilliseconds()
+//        callHistoryManager.addCallLog(callData, CallTypes.DECLINED, endTime)
+//
+//        StateManager.updateCallState(CallState.DECLINED)
+//    }
+//
+//    override suspend fun endCall() {
+//        val accountInfo = currentAccountInfo ?: return
+//        val callData = accountInfo.currentCallData ?: return
+//
+//        val currentState = StateManager.getCurrentCallState()
+//        if (currentState == CallState.NONE || currentState == CallState.ENDED) {
+//            return
+//        }
+//
+//        // Detener ringtones inmediatamente al terminar
+//        ringtoneManager.stopAllRingtones()
+//
+//        val endTime = Clock.System.now().toEpochMilliseconds()
+//
+//        when (currentState) {
+//            CallState.CONNECTED, CallState.HOLDING, CallState.ACCEPTING -> {
+//                messageHandler.sendBye(accountInfo, callData)
+//                callHistoryManager.addCallLog(callData, CallTypes.SUCCESS, endTime)
+//            }
+//
+//            CallState.CALLING, CallState.RINGING, CallState.OUTGOING -> {
+//                messageHandler.sendCancel(accountInfo, callData)
+//                callHistoryManager.addCallLog(callData, CallTypes.ABORTED, endTime)
+//            }
+//
+//            else -> {}
+//        }
+//
+//        StateManager.updateCallState(CallState.ENDED)
+//        webRtcManager.dispose()
+//        clearDtmfQueue()
+//        accountInfo.resetCallState()
+//        onCallTerminated?.invoke()
+//    }
+//
+//    override suspend fun holdCall() {
+//        val accountInfo = currentAccountInfo ?: return
+//        val callData = accountInfo.currentCallData ?: return
+//
+//        callHoldManager.holdCall()?.let { holdSdp ->
+//            callData.localSdp = holdSdp
+//            callData.isOnHold = true
+//            messageHandler.sendReInvite(accountInfo, callData, holdSdp)
+//            StateManager.updateCallState(CallState.HOLDING)
+//            eventDispatcher.onCallHold(callData.callId, true)
+//        }
+//    }
+//
+//    override suspend fun resumeCall() {
+//        val accountInfo = currentAccountInfo ?: return
+//        val callData = accountInfo.currentCallData ?: return
+//
+//        callHoldManager.resumeCall()?.let { resumeSdp ->
+//            callData.localSdp = resumeSdp
+//            callData.isOnHold = false
+//            messageHandler.sendReInvite(accountInfo, callData, resumeSdp)
+//            StateManager.updateCallState(CallState.CONNECTED)
+//            eventDispatcher.onCallHold(callData.callId, false)
+//        }
+//    }
+//
+//    override fun sendDtmf(digit: Char, duration: Int): Boolean {
+//        val validDigits = setOf(
+//            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+//            '*', '#', 'A', 'B', 'C', 'D', 'a', 'b', 'c', 'd'
+//        )
+//
+//        if (!validDigits.contains(digit)) {
+//            return false
+//        }
+//
+//        val request = DtmfRequest(digit, duration)
+//        coreScope.launch {
+//            dtmfMutex.withLock {
+//                dtmfQueue.add(request)
+//            }
+//            processDtmfQueue()
+//        }
+//
+//        return true
+//    }
+//
+//    override fun sendDtmfSequence(digits: String, duration: Int): Boolean {
+//        if (digits.isEmpty()) return false
+//
+//        digits.forEach { digit ->
+//            sendDtmf(digit, duration)
+//        }
+//
+//        return true
+//    }
+//
+//    override fun getCurrentCallState(): CallState = StateManager.getCurrentCallState()
+//    override fun hasActiveCall(): Boolean =
+//        getCurrentCallState() != CallState.NONE && getCurrentCallState() != CallState.ENDED
+//
+//    override fun isCallConnected(): Boolean = getCurrentCallState() == CallState.CONNECTED
+//
+//    // Métodos públicos adicionales
+//    fun addEventListener(listener: SipEventListener) {
+//        coreScope.launch {
+//            eventDispatcher.addListener(listener)
+//        }
+//    }
+//
+//    fun removeEventListener(listener: SipEventListener) {
+//        coreScope.launch {
+//            eventDispatcher.removeListener(listener)
+//        }
+//    }
+//
+//    fun updateRingtoneConfig(config: RingtoneConfig) {
+//        ringtoneManager.setRingtoneEnabled(config.enableIncomingRingtone || config.enableOutgoingRingtone)
+//
+//        if (config.customIncomingRingtoneUri != null) {
+//            ringtoneManager.setCustomIncomingRingtone(config.customIncomingRingtoneUri)
+//        }
+//
+//        if (config.customOutgoingRingtoneUri != null) {
+//            ringtoneManager.setCustomOutgoingRingtone(config.customOutgoingRingtoneUri)
+//        }
+//
+//        ringtoneManager.setRingtoneVolume(config.volume)
+//        ringtoneManager.setVibrationEnabled(config.enableVibration)
+//    }
+//
+//    fun getAudioManager(): EnhancedAudioDeviceManager = audioManager
+//    fun getRingtoneManager(): EnhancedRingtoneManager = ringtoneManager
+//
+//    // Otros métodos existentes adaptados...
+//    fun userAgent(): String = currentUserAgent
+//    fun getDefaultDomain(): String? = currentAccountInfo?.domain
+//    fun getCurrentUsername(): String? = currentAccountInfo?.username
+//
+//    private fun handleWebRtcConnected() {
+//        callStartTimeMillis = Clock.System.now().toEpochMilliseconds()
+//        StateManager.updateCallState(CallState.CONNECTED)
+//        StateManager.updateCallDuration(callStartTimeMillis)
+//    }
+//
+//    private fun handleWebRtcClosed() {
+//        StateManager.updateCallState(CallState.ENDED)
+//        currentAccountInfo?.currentCallData?.let { callData ->
+//            val endTime = Clock.System.now().toEpochMilliseconds()
+//            val callType = determineCallType(callData, CallState.ENDED)
+//            callHistoryManager.addCallLog(callData, callType, endTime)
+//        }
+//    }
+//
+//    private fun refreshAllRegistrationsWithNewUserAgent() {
+//        if (getCurrentCallState() != CallState.NONE && getCurrentCallState() != CallState.ENDED) {
+//            return
+//        }
+//
+//        activeAccounts.values.forEach { accountInfo ->
+//            if (accountInfo.isRegistered) {
+//                accountInfo.userAgent = userAgent()
+//                messageHandler.sendRegister(
+//                    accountInfo,
+//                    StateManager.getCurrentAppState() == EddysSipLibrary.AppState.BACKGROUND
+//                )
+//            }
+//        }
+//    }
+//
+//    private fun startConnectionHealthCheck() {
+//        coreScope.launch {
+//            while (true) {
+//                delay(connectionCheckInterval)
+//                checkConnectionHealth()
+//            }
+//        }
+//    }
+//
+//    private suspend fun checkConnectionHealth() {
+//        activeAccounts.values.forEach { accountInfo ->
+//            val webSocket = accountInfo.webSocketClient
+//            if (webSocket != null && accountInfo.isRegistered) {
+//                if (!webSocket.isConnected()) {
+//                    eventDispatcher.onNetworkStateChanged(false, "disconnected")
+//                    reconnectAccount(accountInfo)
+//                } else {
+//                    eventDispatcher.onNetworkStateChanged(true, "connected")
+//                }
+//            }
+//        }
+//    }
+//
+//    private fun reconnectAccount(accountInfo: AccountInfo) {
+//        if (reconnectionInProgress) return
+//
+//        reconnectionInProgress = true
+//        coreScope.launch {
+//            try {
+//                accountInfo.webSocketClient?.close()
+//                accountInfo.userAgent = userAgent()
+//                val headers = createHeaders()
+//                val newWebSocketClient = createWebSocketClient(accountInfo, headers)
+//                accountInfo.webSocketClient = newWebSocketClient
+//            } catch (e: Exception) {
+//                log.e(tag = TAG) { "Error during reconnection: ${e.message}" }
+////                eventDispatcher.onError(
+////                    EddysSipLibrary.SipError(
+////                        code = 1002,
+////                        message = "Reconnection failed: ${e.message}",
+////                        category = EddysSipLibrary.ErrorCategory.NETWORK
+////                    )
+////                )
+//            } finally {
+//                reconnectionInProgress = false
+//            }
+//        }
+//    }
+//
+//    // Métodos auxiliares
+//    private fun startCallStatisticsMonitoring() {
+//        coreScope.launch {
+//            while (getCurrentCallState() == CallState.CONNECTED) {
+//                updateCallStatistics()
+//                callStatistics?.let { stats ->
+//                    eventDispatcher.onCallStatistics(stats)
+//                }
+//                delay(5000) // Update every 5 seconds
+//            }
+//        }
+//    }
+//
+//    private fun stopCallStatisticsMonitoring() {
+//        callStatistics = null
+//    }
+//
+//    private fun updateCallStatistics() {
+//        val networkQuality = getNetworkQuality()
+//        callStatistics = CallStatistics(
+//            id = StateManager.getCurrentCallId(),
+//            duration = calculateCallDuration(),
+//            audioCodec = "opus",
+//            networkQuality = networkQuality?.score ?: 0f,
+//            packetsLost = networkQuality?.packetLoss?.toInt() ?: 0,
+//            jitter = networkQuality?.jitter ?: 0L,
+//            rtt = networkQuality?.latency ?: 0L,
+//            bitrate = 64000,
+//            audioLevel = 0.5f
+//        )
+//    }
+//
+//    fun getCurrentCallStatistics(): CallStatistics? = callStatistics
+//
+//    private fun calculateCallDuration(): Long {
+//        return if (callStartTimeMillis > 0) {
+//            Clock.System.now().toEpochMilliseconds() - callStartTimeMillis
+//        } else 0L
+//    }
+//
+//    private fun determineEndReason(previousState: CallState): EddysSipLibrary.CallEndReason {
+//        return when (previousState) {
+//            CallState.CALLING, CallState.OUTGOING -> EddysSipLibrary.CallEndReason.CANCELLED
+//            CallState.INCOMING, CallState.RINGING -> EddysSipLibrary.CallEndReason.DECLINED
+//            CallState.CONNECTED -> EddysSipLibrary.CallEndReason.USER_HANGUP
+//            else -> EddysSipLibrary.CallEndReason.NETWORK_ERROR
+//        }
+//    }
+//
+//    private fun determineCallType(callData: CallData, finalState: CallState): CallTypes {
+//        return when (finalState) {
+//            CallState.CONNECTED, CallState.ENDED -> CallTypes.SUCCESS
+//            CallState.DECLINED -> CallTypes.DECLINED
+//            CallState.CALLING, CallState.RINGING -> CallTypes.ABORTED
+//            else -> if (callData.direction == CallDirections.INCOMING) {
+//                CallTypes.MISSED
+//            } else {
+//                CallTypes.ABORTED
+//            }
+//        }
+//    }
+//
+//    private suspend fun processDtmfQueue() = withContext(Dispatchers.IO) {
+//        dtmfMutex.withLock {
+//            if (isDtmfProcessing || dtmfQueue.isEmpty()) {
+//                return@withLock
+//            }
+//            isDtmfProcessing = true
+//        }
+//
+//        try {
+//            while (true) {
+//                val request: DtmfRequest? = dtmfMutex.withLock {
+//                    if (dtmfQueue.isNotEmpty()) {
+//                        dtmfQueue.removeAt(0)
+//                    } else {
+//                        null
+//                    }
+//                }
+//
+//                if (request == null) break
+//
+//                val success = sendSingleDtmf(request.digit, request.duration)
+//                if (success) {
+//                    delay(150) // Gap between digits
+//                }
+//            }
+//        } finally {
+//            dtmfMutex.withLock {
+//                isDtmfProcessing = false
+//            }
+//        }
+//    }
+//
+//    private suspend fun sendSingleDtmf(digit: Char, duration: Int): Boolean {
+//        val currentAccount = currentAccountInfo
+//        val callData = currentAccount?.currentCallData
+//
+//        if (currentAccount == null || callData == null || getCurrentCallState() != CallState.CONNECTED) {
+//            return false
+//        }
+//
+//        return try {
+//            webRtcManager.sendDtmfTones(
+//                tones = digit.toString().uppercase(),
+//                duration = duration,
+//                gap = 100
+//            )
+//        } catch (e: Exception) {
+//            false
+//        }
+//    }
+//
+//    fun clearDtmfQueue() {
+//        coreScope.launch {
+//            dtmfMutex.withLock {
+//                dtmfQueue.clear()
+//                isDtmfProcessing = false
+//            }
+//        }
+//    }
+//
+//    fun getNetworkQuality(): EddysSipLibrary.NetworkQuality? {
+//        return networkQualityMonitor?.getCurrentQuality()
+//    }
+//
+//    fun enterPushMode(reason: String = "Manual") {
+//        if (!isPushMode) {
+//            isPushMode = true
+//            coreScope.launch {
+//                eventDispatcher.onPushModeChanged(true, reason)
+//            }
+//            currentUserAgent = "${config.userAgent} (Push)"
+//            refreshAllRegistrationsWithNewUserAgent()
+//        }
+//    }
+//
+//    fun exitPushMode(reason: String = "Manual") {
+//        if (isPushMode) {
+//            isPushMode = false
+//            coreScope.launch {
+//                eventDispatcher.onPushModeChanged(false, reason)
+//            }
+//            currentUserAgent = config.userAgent
+//            refreshAllRegistrationsWithNewUserAgent()
+//        }
+//    }
+//
+//    // Otros métodos de registro, WebSocket, etc. (adaptados del código original)
+//    fun register(
+//        username: String,
+//        password: String,
+//        domain: String,
+//        provider: String,
+//        token: String,
+//        customHeaders: Map<String, String> = emptyMap(),
+//        expires: Int = config.registrationExpiresSeconds
+//    ) {
+//        try {
+//            val accountKey = "$username@$domain"
+//            val accountInfo = AccountInfo(username, password, domain)
+//            activeAccounts[accountKey] = accountInfo
+//
+//            accountInfo.token = token
+//            accountInfo.provider = provider
+//            accountInfo.userAgent = userAgent()
+//
+//            this.customHeaders.putAll(customHeaders)
+//
+//            connectWebSocketAndRegister(accountInfo)
+//        } catch (e: Exception) {
+//            StateManager.updateRegistrationState(RegistrationState.FAILED)
+//            coreScope.launch {
+////                eventDispatcher.onError(
+////                    EddysSipLibrary.SipError(
+////                        code = 1001,
+////                        message = "Registration error: ${e.message}",
+////                        category = EddysSipLibrary.ErrorCategory.AUTHENTICATION
+////                    )
+////                )
+//            }
+//            throw Exception("Registration error: ${e.message}")
+//        }
+//    }
+//
+//    private fun connectWebSocketAndRegister(accountInfo: AccountInfo) {
+//        try {
+//            accountInfo.webSocketClient?.close()
+//            val headers = createHeaders()
+//            val webSocketClient = createWebSocketClient(accountInfo, headers)
+//            accountInfo.webSocketClient = webSocketClient
+//        } catch (e: Exception) {
+//            log.d(tag = TAG) { "Error connecting WebSocket: ${e.stackTraceToString()}" }
+//        }
+//    }
+//
+//    private fun createHeaders(): HashMap<String, String> {
+//        return hashMapOf(
+//            "User-Agent" to userAgent(),
+//            "Origin" to "https://telephony.${config.defaultDomain}",
+//            "Sec-WebSocket-Protocol" to WEBSOCKET_PROTOCOL
+//        ).apply {
+//            putAll(customHeaders)
+//        }
+//    }
+//
+//    private fun createWebSocketClient(
+//        accountInfo: AccountInfo,
+//        headers: Map<String, String>
+//    ): MultiplatformWebSocket {
+//        val websocket = WebSocket(config.webSocketUrl, headers)
+//        setupWebSocketListeners(websocket, accountInfo)
+//        websocket.connect()
+//        websocket.startPingTimer(config.pingIntervalMs)
+//        websocket.startRegistrationRenewalTimer(REGISTRATION_CHECK_INTERVAL_MS, 60000L)
+//        return websocket
+//    }
+//
+//    private fun setupWebSocketListeners(websocket: WebSocket, accountInfo: AccountInfo) {
+//        websocket.setListener(object : MultiplatformWebSocket.Listener {
+//            override fun onOpen() {
+//                reconnectionInProgress = false
+//                lastConnectionCheck = Clock.System.now().toEpochMilliseconds()
+//                coreScope.launch {
+//                    eventDispatcher.onWebSocketStateChanged(true, config.webSocketUrl)
+//                }
+//                messageHandler.sendRegister(
+//                    accountInfo,
+//                    StateManager.getCurrentAppState() == EddysSipLibrary.AppState.BACKGROUND
+//                )
+//            }
+//
+//            override fun onMessage(message: String) {
+//                coreScope.launch {
+//                    eventDispatcher.onSipMessageReceived(message, "INCOMING")
+//                }
+//                messageHandler.handleSipMessage(message, accountInfo)
+//            }
+//
+//            override fun onClose(code: Int, reason: String) {
+//                accountInfo.isRegistered = false
+//                StateManager.updateRegistrationState(RegistrationState.NONE)
+//                coreScope.launch {
+//                    eventDispatcher.onWebSocketStateChanged(false, config.webSocketUrl)
+//                }
+//                if (code != 1000) {
+//                    handleUnexpectedDisconnection(accountInfo)
+//                }
+//            }
+//
+//            override fun onError(error: Exception) {
+//                accountInfo.isRegistered = false
+//                StateManager.updateRegistrationState(RegistrationState.FAILED)
+//                coreScope.launch {
+//                    eventDispatcher.onWebSocketStateChanged(false, config.webSocketUrl)
+////                    eventDispatcher.onError(
+////                        EddysSipLibrary.SipError(
+////                            code = 1003,
+////                            message = "WebSocket error: ${error.message}",
+////                            category = EddysSipLibrary.ErrorCategory.NETWORK
+////                        )
+////                    )
+//                }
+//                handleConnectionError(accountInfo, error)
+//            }
+//
+//            override fun onPong(timeMs: Long) {
+//                lastConnectionCheck = Clock.System.now().toEpochMilliseconds()
+//            }
+//
+//            override fun onRegistrationRenewalRequired(accountKey: String) {
+//                val account = activeAccounts[accountKey]
+//                if (account != null && account.webSocketClient?.isConnected() == true) {
+//                    messageHandler.sendRegister(
+//                        account,
+//                        StateManager.getCurrentAppState() == EddysSipLibrary.AppState.BACKGROUND
+//                    )
+//                } else {
+//                    account?.let { reconnectAccount(it) }
+//                }
+//            }
+//        })
+//    }
+//
+//    private fun handleUnexpectedDisconnection(accountInfo: AccountInfo) {
+//        if (!reconnectionInProgress) {
+//            coreScope.launch {
+//                delay(2000)
+//                reconnectAccount(accountInfo)
+//            }
+//        }
+//    }
+//
+//    private fun handleConnectionError(accountInfo: AccountInfo, error: Exception) {
+//        lastConnectionCheck = 0L
+//        when {
+//            error.message?.contains("timeout") == true -> {
+//                reconnectAccount(accountInfo)
+//            }
+//
+//            else -> {
+//                reconnectAccount(accountInfo)
+//            }
+//        }
+//    }
+//
+//    fun dispose() {
+//        networkQualityMonitor?.dispose()
+//        audioManager.dispose()
+//        ringtoneManager.dispose()
+//        webRtcManager.dispose()
+//        activeAccounts.clear()
+//        coreScope.cancel()
+//        uiScope.cancel()
+//    }
+//
+////    fun getMessageHandler(): SipMessageHandler = messageHandler
+//}
+//
+//// Data class para configuración de ringtone
+//data class RingtoneConfig(
+//    val enableIncomingRingtone: Boolean = true,
+//    val enableOutgoingRingtone: Boolean = true,
+//    val enableVibration: Boolean = true,
+//    val volume: Float = 1.0f,
+//    val customIncomingRingtoneUri: Uri? = null,
+//    val customOutgoingRingtoneUri: Uri? = null
+//)
+
+///////////55555///////
 /**
  * Enhanced SIP Core Manager con interfaces y múltiples listeners
  *
@@ -35,7 +1102,6 @@ import kotlinx.datetime.Clock
 class SipCoreManager private constructor(
     private val application: Application,
     private val config: EddysSipLibrary.SipConfig,
-    private val eventDispatcher: SipEventDispatcher,
     private val audioManager: EnhancedAudioDeviceManager,
     private val ringtoneManager: EnhancedRingtoneManager,
     private val windowManager: WindowManager,
@@ -48,7 +1114,7 @@ class SipCoreManager private constructor(
     // Core managers
     val callHistoryManager = CallHistoryManager()
     private val messageHandler: SipMessageHandler by lazy {
-        SipMessageHandler(this, eventDispatcher)
+        SipMessageHandler(this)
     }
 
     // WebRTC and networking
@@ -90,16 +1156,14 @@ class SipCoreManager private constructor(
 
         fun createInstance(
             application: Application,
-            config: EddysSipLibrary.SipConfig,
-            eventDispatcher: SipEventDispatcher
+            config: EddysSipLibrary.SipConfig
         ): SipCoreManager {
-            val audioManager = EnhancedAudioDeviceManager(application, eventDispatcher)
-            val ringtoneManager = EnhancedRingtoneManager(application, eventDispatcher)
+            val audioManager = EnhancedAudioDeviceManager(application)
+            val ringtoneManager = EnhancedRingtoneManager(application)
 
             return SipCoreManager(
                 application = application,
                 config = config,
-                eventDispatcher = eventDispatcher,
                 audioManager = audioManager,
                 ringtoneManager = ringtoneManager,
                 windowManager = WindowManager(),
@@ -142,7 +1206,7 @@ class SipCoreManager private constructor(
     private fun setupEnhancedFeatures() {
         networkQualityMonitor = NetworkQualityMonitor { quality ->
             coreScope.launch {
-                eventDispatcher.onNetworkQuality(quality)
+                GlobalEventBus.emit(SipEvent.NetworkQuality(quality))
             }
         }
 
@@ -152,17 +1216,17 @@ class SipCoreManager private constructor(
                 val inputDevices = audioManager.getAudioInputDevices()
                 val outputDevices = audioManager.getAudioOutputDevices()
                 StateManager.updateAvailableAudioDevices(inputDevices, outputDevices)
-                eventDispatcher.onAudioDevicesAvailable(inputDevices, outputDevices)
+                GlobalEventBus.emit(SipEvent.AudioDevicesAvailable(inputDevices, outputDevices))
             } catch (e: Exception) {
                 log.e(tag = TAG) { "Error initializing audio devices: ${e.message}" }
             }
         }
     }
+
     private fun startStateMonitoring() {
-        // Monitor call state changes - CORREGIDO
+        // Monitor call state changes
         coreScope.launch {
             StateManager.callStateFlow.collect { newState ->
-                // Ya no hay loop infinito porque no llamamos updateCallState aquí
                 log.d(tag = TAG) { "State monitor detected call state: $newState" }
                 handleCallStateChangeEffects(newState)
             }
@@ -173,12 +1237,12 @@ class SipCoreManager private constructor(
             StateManager.registrationStateFlow.collect { state ->
                 log.d(tag = TAG) { "State monitor detected registration state: $state" }
                 val currentAccount = getCurrentUsername() ?: "unknown"
-                eventDispatcher.onRegistrationStateChanged(state, currentAccount)
+                GlobalEventBus.emit(SipEvent.RegistrationStateChanged(state, currentAccount))
                 handleRegistrationStateChange(state, currentAccount)
             }
         }
 
-        // Monitor caller number changes - NUEVO
+        // Monitor caller number changes
         coreScope.launch {
             StateManager.callerNumberFlow.collect { number ->
                 if (number.isNotEmpty()) {
@@ -187,7 +1251,7 @@ class SipCoreManager private constructor(
             }
         }
 
-        // Monitor call duration - NUEVO
+        // Monitor call duration
         coreScope.launch {
             StateManager.callDurationFlow.collect { duration ->
                 if (duration > 0) {
@@ -200,101 +1264,6 @@ class SipCoreManager private constructor(
         }
     }
 
-//    private fun startStateMonitoring() {
-//        // Monitor call state changes
-//        coreScope.launch {
-//            StateManager.callStateFlow.collect { newState ->
-//                val oldState = StateManager.getCurrentCallState()
-//                if (oldState != newState) {
-//                    val callId = StateManager.getCurrentCallId()
-//                    eventDispatcher.onCallStateChanged(oldState, newState, callId)
-//                    handleCallStateChange(oldState, newState, callId)
-//                }
-//            }
-//        }
-//
-//        // Monitor registration state changes
-//        coreScope.launch {
-//            StateManager.registrationStateFlow.collect { state ->
-//                val currentAccount = getCurrentUsername() ?: "unknown"
-//                eventDispatcher.onRegistrationStateChanged(state, currentAccount)
-//                handleRegistrationStateChange(state, currentAccount)
-//            }
-//        }
-//
-//        // Monitor audio state changes
-//        coreScope.launch {
-//            StateManager.audioStateFlow.collect { audioState ->
-//                // Handle audio state changes
-//                if (audioState.currentInputDevice != null && audioState.currentOutputDevice != null) {
-//                    eventDispatcher.onAudioDeviceChanged(null, audioState.currentOutputDevice!!)
-//                }
-//            }
-//        }
-//
-//        // Monitor ringtone state
-//        coreScope.launch {
-//            StateManager.ringtoneStateFlow.collect { ringtoneState ->
-//                if (!ringtoneState.isEnabled && ringtoneState.isIncomingPlaying) {
-//                    ringtoneManager.stopIncomingRingtone()
-//                }
-//                if (!ringtoneState.isEnabled && ringtoneState.isOutgoingPlaying) {
-//                    ringtoneManager.stopOutgoingRingtone()
-//                }
-//            }
-//        }
-//    }
-
-    private suspend fun handleCallStateChange(
-        oldState: CallState,
-        newState: CallState,
-        callId: String
-    ) {
-        when (newState) {
-            CallState.CONNECTED -> {
-                eventDispatcher.onCallConnected(callId, calculateCallDuration())
-                startCallStatisticsMonitoring()
-                // Detener ringtones cuando se conecta
-                ringtoneManager.stopAllRingtones()
-            }
-
-            CallState.ENDED -> {
-                val duration = calculateCallDuration()
-                eventDispatcher.onCallDisconnected(
-                    callId = callId,
-                    reason = determineEndReason(oldState),
-                    duration = duration
-                )
-                stopCallStatisticsMonitoring()
-                // Detener ringtones cuando termina
-                ringtoneManager.stopAllRingtones()
-            }
-
-            CallState.INCOMING -> {
-                val callerNumber = StateManager.getCurrentCallerNumber()
-                eventDispatcher.onIncomingCall(callerNumber, null, callId)
-                // Reproducir ringtone de entrada
-                if (config.ringtoneConfig.enableIncomingRingtone) {
-                    ringtoneManager.playIncomingRingtone()
-                }
-            }
-
-            CallState.CALLING, CallState.OUTGOING -> {
-                // Reproducir ringtone de salida
-                if (config.ringtoneConfig.enableOutgoingRingtone) {
-                    ringtoneManager.playOutgoingRingtone()
-                }
-            }
-
-            CallState.RINGING -> {
-                // Detener ringtone de salida cuando empieza a sonar
-                ringtoneManager.stopOutgoingRingtone()
-            }
-
-            else -> {}
-        }
-    }
-
     private suspend fun handleCallStateChangeEffects(newState: CallState) {
         when (newState) {
             CallState.INCOMING -> {
@@ -302,9 +1271,11 @@ class SipCoreManager private constructor(
                 if (config.ringtoneConfig.enableIncomingRingtone) {
                     ringtoneManager.playIncomingRingtone()
                 }
-                eventDispatcher.onIncomingCall(currentAccountInfo?.currentCallData?.from ?: "", null,
+                GlobalEventBus.emit(SipEvent.IncomingCall(
+                    currentAccountInfo?.currentCallData?.from ?: "",
+                    null,
                     currentAccountInfo?.currentCallData?.callId ?: ""
-                )
+                ))
 
                 // Auto-accept si está configurado
                 if (config.autoAcceptDelay > 0) {
@@ -353,11 +1324,11 @@ class SipCoreManager private constructor(
     private suspend fun handleRegistrationStateChange(state: RegistrationState, account: String) {
         when (state) {
             RegistrationState.OK -> {
-                eventDispatcher.onRegistrationSuccess(account, config.registrationExpiresSeconds)
+                GlobalEventBus.emit(SipEvent.RegistrationSuccess(account, config.registrationExpiresSeconds))
             }
 
             RegistrationState.FAILED -> {
-                eventDispatcher.onRegistrationFailed(account, "Registration failed")
+                GlobalEventBus.emit(SipEvent.RegistrationFailed(account, "Registration failed"))
             }
 
             else -> {}
@@ -385,7 +1356,7 @@ class SipCoreManager private constructor(
             override fun onAudioDeviceChanged(device: AudioDevice) {
                 log.d(tag = TAG) { "Audio device changed: ${device.name}" }
                 coreScope.launch {
-                    eventDispatcher.onAudioDeviceChanged(null, device)
+                    GlobalEventBus.emit(SipEvent.AudioDeviceChanged(null, device))
                 }
             }
         })
@@ -423,21 +1394,20 @@ class SipCoreManager private constructor(
         username: String,
         domain: String,
         customHeaders: Map<String, String>
-    ) {
+    ): String {
         val accountKey = "$username@$domain"
-        val accountInfo = activeAccounts[accountKey] ?: return
+        val accountInfo = activeAccounts[accountKey] ?: throw SipLibraryException(
+            "Account not found",
+            SipError(ErrorCodes.NO_REGISTERED_ACCOUNT, "Account not found", ErrorCategory.CONFIGURATION)
+        )
         currentAccountInfo = accountInfo
 
         if (!accountInfo.isRegistered) {
             log.d(tag = TAG) { "Error: Not registered with SIP server" }
-            eventDispatcher.onError(
-                EddysSipLibrary.SipError(
-                    code = 1004,
-                    message = "Not registered with SIP server",
-                    category = EddysSipLibrary.ErrorCategory.SIP_PROTOCOL
-                )
+            throw SipLibraryException(
+                "Not registered with SIP server",
+                SipError(ErrorCodes.NO_REGISTERED_ACCOUNT, "Not registered", ErrorCategory.AUTHENTICATION)
             )
-            return
         }
 
         try {
@@ -460,11 +1430,18 @@ class SipCoreManager private constructor(
             StateManager.updateCallId(callId)
 
             val allHeaders = this.customHeaders + customHeaders
-            eventDispatcher.onSipMessageSent("INVITE", "OUTGOING")
+            GlobalEventBus.emit(SipEvent.SipMessageSent("INVITE", "OUTGOING"))
             messageHandler.sendInvite(accountInfo, callData)
+
+            return callId
         } catch (e: Exception) {
             log.e(tag = TAG) { "Error creating call: ${e.stackTraceToString()}" }
-            eventDispatcher.onCallFailed(generateId(), "Failed to create call: ${e.message}", 1005)
+            GlobalEventBus.emit(SipEvent.CallFailed(generateId(), "Failed to create call: ${e.message}", 1005))
+            throw SipLibraryException(
+                "Failed to create call",
+                SipError(ErrorCodes.CALL_INITIATION_FAILED, "Call creation failed", ErrorCategory.SIP_PROTOCOL),
+                e
+            )
         }
     }
 
@@ -503,11 +1480,11 @@ class SipCoreManager private constructor(
             StateManager.updateCallState(CallState.ACCEPTING)
         } catch (e: Exception) {
             log.e(tag = TAG) { "Error accepting call: ${e.message}" }
-            eventDispatcher.onCallFailed(
+            GlobalEventBus.emit(SipEvent.CallFailed(
                 callData.callId,
                 "Failed to accept call: ${e.message}",
                 1006
-            )
+            ))
             declineCall()
         }
     }
@@ -582,7 +1559,7 @@ class SipCoreManager private constructor(
             callData.isOnHold = true
             messageHandler.sendReInvite(accountInfo, callData, holdSdp)
             StateManager.updateCallState(CallState.HOLDING)
-            eventDispatcher.onCallHold(callData.callId, true)
+            GlobalEventBus.emit(SipEvent.CallHold(callData.callId, true))
         }
     }
 
@@ -595,7 +1572,7 @@ class SipCoreManager private constructor(
             callData.isOnHold = false
             messageHandler.sendReInvite(accountInfo, callData, resumeSdp)
             StateManager.updateCallState(CallState.CONNECTED)
-            eventDispatcher.onCallHold(callData.callId, false)
+            GlobalEventBus.emit(SipEvent.CallHold(callData.callId, false))
         }
     }
 
@@ -637,18 +1614,6 @@ class SipCoreManager private constructor(
     override fun isCallConnected(): Boolean = getCurrentCallState() == CallState.CONNECTED
 
     // Métodos públicos adicionales
-    fun addEventListener(listener: SipEventListener) {
-        coreScope.launch {
-            eventDispatcher.addListener(listener)
-        }
-    }
-
-    fun removeEventListener(listener: SipEventListener) {
-        coreScope.launch {
-            eventDispatcher.removeListener(listener)
-        }
-    }
-
     fun updateRingtoneConfig(config: RingtoneConfig) {
         ringtoneManager.setRingtoneEnabled(config.enableIncomingRingtone || config.enableOutgoingRingtone)
 
@@ -717,10 +1682,10 @@ class SipCoreManager private constructor(
             val webSocket = accountInfo.webSocketClient
             if (webSocket != null && accountInfo.isRegistered) {
                 if (!webSocket.isConnected()) {
-                    eventDispatcher.onNetworkStateChanged(false, "disconnected")
+                    GlobalEventBus.emit(SipEvent.NetworkStateChanged(false, "disconnected"))
                     reconnectAccount(accountInfo)
                 } else {
-                    eventDispatcher.onNetworkStateChanged(true, "connected")
+                    GlobalEventBus.emit(SipEvent.NetworkStateChanged(true, "connected"))
                 }
             }
         }
@@ -739,13 +1704,11 @@ class SipCoreManager private constructor(
                 accountInfo.webSocketClient = newWebSocketClient
             } catch (e: Exception) {
                 log.e(tag = TAG) { "Error during reconnection: ${e.message}" }
-                eventDispatcher.onError(
-                    EddysSipLibrary.SipError(
-                        code = 1002,
-                        message = "Reconnection failed: ${e.message}",
-                        category = EddysSipLibrary.ErrorCategory.NETWORK
-                    )
-                )
+                GlobalEventBus.emit(SipEvent.Error(SipError(
+                    code = 1002,
+                    message = "Reconnection failed: ${e.message}",
+                    category = ErrorCategory.NETWORK
+                )))
             } finally {
                 reconnectionInProgress = false
             }
@@ -758,7 +1721,7 @@ class SipCoreManager private constructor(
             while (getCurrentCallState() == CallState.CONNECTED) {
                 updateCallStatistics()
                 callStatistics?.let { stats ->
-                    eventDispatcher.onCallStatistics(stats)
+                    GlobalEventBus.emit(SipEvent.CallStatistics(stats))
                 }
                 delay(5000) // Update every 5 seconds
             }
@@ -882,7 +1845,7 @@ class SipCoreManager private constructor(
         if (!isPushMode) {
             isPushMode = true
             coreScope.launch {
-                eventDispatcher.onPushModeChanged(true, reason)
+                GlobalEventBus.emit(SipEvent.PushModeChanged(true, reason))
             }
             currentUserAgent = "${config.userAgent} (Push)"
             refreshAllRegistrationsWithNewUserAgent()
@@ -893,7 +1856,7 @@ class SipCoreManager private constructor(
         if (isPushMode) {
             isPushMode = false
             coreScope.launch {
-                eventDispatcher.onPushModeChanged(false, reason)
+                GlobalEventBus.emit(SipEvent.PushModeChanged(false, reason))
             }
             currentUserAgent = config.userAgent
             refreshAllRegistrationsWithNewUserAgent()
@@ -925,13 +1888,11 @@ class SipCoreManager private constructor(
         } catch (e: Exception) {
             StateManager.updateRegistrationState(RegistrationState.FAILED)
             coreScope.launch {
-                eventDispatcher.onError(
-                    EddysSipLibrary.SipError(
-                        code = 1001,
-                        message = "Registration error: ${e.message}",
-                        category = EddysSipLibrary.ErrorCategory.AUTHENTICATION
-                    )
-                )
+                GlobalEventBus.emit(SipEvent.Error(SipError(
+                    code = 1001,
+                    message = "Registration error: ${e.message}",
+                    category = ErrorCategory.AUTHENTICATION
+                )))
             }
             throw Exception("Registration error: ${e.message}")
         }
@@ -976,7 +1937,7 @@ class SipCoreManager private constructor(
                 reconnectionInProgress = false
                 lastConnectionCheck = Clock.System.now().toEpochMilliseconds()
                 coreScope.launch {
-                    eventDispatcher.onWebSocketStateChanged(true, config.webSocketUrl)
+                    GlobalEventBus.emit(SipEvent.WebSocketStateChanged(true, config.webSocketUrl))
                 }
                 messageHandler.sendRegister(
                     accountInfo,
@@ -986,7 +1947,7 @@ class SipCoreManager private constructor(
 
             override fun onMessage(message: String) {
                 coreScope.launch {
-                    eventDispatcher.onSipMessageReceived(message, "INCOMING")
+                    GlobalEventBus.emit(SipEvent.SipMessageReceived(message, "INCOMING"))
                 }
                 messageHandler.handleSipMessage(message, accountInfo)
             }
@@ -995,7 +1956,7 @@ class SipCoreManager private constructor(
                 accountInfo.isRegistered = false
                 StateManager.updateRegistrationState(RegistrationState.NONE)
                 coreScope.launch {
-                    eventDispatcher.onWebSocketStateChanged(false, config.webSocketUrl)
+                    GlobalEventBus.emit(SipEvent.WebSocketStateChanged(false, config.webSocketUrl))
                 }
                 if (code != 1000) {
                     handleUnexpectedDisconnection(accountInfo)
@@ -1006,14 +1967,12 @@ class SipCoreManager private constructor(
                 accountInfo.isRegistered = false
                 StateManager.updateRegistrationState(RegistrationState.FAILED)
                 coreScope.launch {
-                    eventDispatcher.onWebSocketStateChanged(false, config.webSocketUrl)
-                    eventDispatcher.onError(
-                        EddysSipLibrary.SipError(
-                            code = 1003,
-                            message = "WebSocket error: ${error.message}",
-                            category = EddysSipLibrary.ErrorCategory.NETWORK
-                        )
-                    )
+                    GlobalEventBus.emit(SipEvent.WebSocketStateChanged(false, config.webSocketUrl))
+                    GlobalEventBus.emit(SipEvent.Error(SipError(
+                        code = 1003,
+                        message = "WebSocket error: ${error.message}",
+                        category = ErrorCategory.NETWORK
+                    )))
                 }
                 handleConnectionError(accountInfo, error)
             }
@@ -1067,8 +2026,6 @@ class SipCoreManager private constructor(
         coreScope.cancel()
         uiScope.cancel()
     }
-
-//    fun getMessageHandler(): SipMessageHandler = messageHandler
 }
 
 // Data class para configuración de ringtone
@@ -1080,13 +2037,9 @@ data class RingtoneConfig(
     val customIncomingRingtoneUri: Uri? = null,
     val customOutgoingRingtoneUri: Uri? = null
 )
-//
-///**
-// * Enhanced SIP Core Manager - Gestor principal del core SIP con funcionalidades extendidas
-// *
-// * @author Eddys Larez
-// */
-//class SipCoreManager private constructor(
+
+
+///////555555///////
 //    private val application: Application,
 //    private val config: EddysSipLibrary.SipConfig,
 //    val playRingtoneUseCase: PlayRingtoneUseCase,

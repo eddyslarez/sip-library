@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
  */
 class EnhancedRingtoneManager(
     private val application: Application,
-    private val eventDispatcher: SipEventDispatcher
+//    private val eventDispatcher: SipEventDispatcher
 ) : RingtoneManagers {
 
     private val TAG = "EnhancedRingtoneManager"

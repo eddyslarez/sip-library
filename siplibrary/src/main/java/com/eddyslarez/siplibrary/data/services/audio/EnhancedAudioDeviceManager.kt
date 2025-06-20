@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
  */
 class EnhancedAudioDeviceManager(
     private val context: Context,
-    private val eventDispatcher: SipEventDispatcher
+//    private val eventDispatcher: SipEventDispatcher
 ) : AudioManager {
 
     private val TAG = "EnhancedAudioDeviceManager"
@@ -402,7 +402,7 @@ class EnhancedAudioDeviceManager(
         audioManager?.isMicrophoneMute = muted
         deviceDetectionScope.launch {
             StateManager.updateMuteState(muted)
-            eventDispatcher.onMuteStateChanged(muted)
+//            eventDispatcher.onMuteStateChanged(muted)
         }
     }
 
@@ -441,7 +441,7 @@ class EnhancedAudioDeviceManager(
             val outputDevices = getAudioOutputDevices()
 
             StateManager.updateAvailableAudioDevices(inputDevices, outputDevices)
-            eventDispatcher.onAudioDevicesAvailable(inputDevices, outputDevices)
+//            eventDispatcher.onAudioDevicesAvailable(inputDevices, outputDevices)
 
             // Update current devices
             val currentInput = getCurrentInputDevice()

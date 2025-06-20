@@ -315,10 +315,10 @@ class AppLifecycleManager(
                 eventDispatcher.onNetworkStateChanged(isConnected, networkType)
 
                 if (!isConnected) {
-                    eventDispatcher.onWarning(EddysSipLibrary.SipWarning(
-                        message = "Network connection lost",
-                        category = EddysSipLibrary.WarningCategory.NETWORK_QUALITY
-                    ))
+//                    eventDispatcher.onWarning(EddysSipLibrary.SipWarning(
+//                        message = "Network connection lost",
+//                        category = EddysSipLibrary.WarningCategory.NETWORK_QUALITY
+//                    ))
                 }
             }
         }
@@ -328,10 +328,10 @@ class AppLifecycleManager(
         batteryOptimizationChecker = BatteryOptimizationChecker(application) { isOptimized ->
             if (isOptimized) {
                 CoroutineScope(Dispatchers.IO).launch {
-                    eventDispatcher.onWarning(EddysSipLibrary.SipWarning(
-                        message = "Battery optimization is enabled, this may affect call quality and push notifications",
-                        category = EddysSipLibrary.WarningCategory.BATTERY_OPTIMIZATION
-                    ))
+//                    eventDispatcher.onWarning(EddysSipLibrary.SipWarning(
+//                        message = "Battery optimization is enabled, this may affect call quality and push notifications",
+//                        category = EddysSipLibrary.WarningCategory.BATTERY_OPTIMIZATION
+//                    ))
                 }
             }
         }
@@ -364,7 +364,7 @@ class AppLifecycleManager(
         if (config.autoExitPushOnForeground && autoPushModeEnabled) {
             CoroutineScope(Dispatchers.IO).launch {
                 delay(config.pushReconnectDelayMs)
-                EddysSipLibrary.getInstance().exitPushMode("App entered foreground")
+//                EddysSipLibrary.getInstance().exitPushMode("App entered foreground")
             }
         }
     }
@@ -373,17 +373,17 @@ class AppLifecycleManager(
         if (config.autoEnterPushOnBackground && autoPushModeEnabled) {
             CoroutineScope(Dispatchers.IO).launch {
                 delay(config.pushReconnectDelayMs)
-                EddysSipLibrary.getInstance().enterPushMode("App entered background")
+//                EddysSipLibrary.getInstance().enterPushMode("App entered background")
             }
         }
 
-        if (config.autoDisconnectWebSocketOnBackground) {
-            // Desconectar WebSocket si está configurado
-            CoroutineScope(Dispatchers.IO).launch {
-                delay(5000) // Esperar 5 segundos antes de desconectar
-                // Implementar desconexión de WebSocket
-            }
-        }
+//        if (config.autoDisconnectWebSocketOnBackground) {
+//            // Desconectar WebSocket si está configurado
+//            CoroutineScope(Dispatchers.IO).launch {
+//                delay(5000) // Esperar 5 segundos antes de desconectar
+//                // Implementar desconexión de WebSocket
+//            }
+//        }
     }
 
     private fun handleTerminationTransition() {
