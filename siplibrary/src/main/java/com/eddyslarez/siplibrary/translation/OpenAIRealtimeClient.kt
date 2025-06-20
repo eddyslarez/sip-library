@@ -440,13 +440,55 @@ class OpenAIRealtimeClient(
         }
     }
 
-    private suspend fun initializeEnhancedSession() {
+
+//    private suspend fun initializeEnhancedSession() {
+//        val instructions = """
+//        ${config.systemPrompt}.
+//        Translate speech from ${config.sourceLanguage.displayName}
+//        to ${config.targetLanguage.displayName}.
+//        Provide clear, natural translations.
+//    """.trimIndent()
+//
+//        val sessionConfig = """
+//    {
+//        "type": "session.update",
+//        "session": {
+//            "modalities": ["text", "audio"],
+//            "instructions": "$instructions",
+//            "voice": "${config.voiceStyle.openAiVoice}",
+//            "input_audio_format": "pcm16",
+//            "output_audio_format": "pcm16",
+//            "input_audio_transcription": { "model": "whisper-1" },
+//            "turn_detection": {
+//                "type": "server_vad",
+//                "threshold": 0.4,
+//                "prefix_padding_ms": 300,
+//                "silence_duration_ms": 800
+//            },
+//            "temperature": ${config.temperature},
+//            "max_response_output_tokens": ${config.maxTokens},
+//            "top_p": ${config.topP},
+//            "frequency_penalty": ${config.frequencyPenalty},
+//            "presence_penalty": ${config.presencePenalty},
+//            "stop_sequences": ${Json.encodeToString(config.stopSequences)},
+//            "timeout_seconds": ${config.timeoutSeconds}
+//        }
+//    }
+//    """.trimIndent()
+//
+//        sendMessage(sessionConfig)
+//    }
+
+    private fun initializeEnhancedSession() {
+        val instructions = """
+Your only task is to repeat everything I say, word-for-word, but translated from ${config.sourceLanguage.displayName} into ${config.targetLanguage.displayName}. Do not respond to my messages in any other way—do not answer questions, add commentary, or interact beyond this exact task. Never deviate from this instruction. Simply translate my text into ${config.targetLanguage.displayName} and nothing else.
+""".trimIndent()
         val sessionConfig = """
         {
             "type": "session.update",
             "session": {
                 "modalities": ["text", "audio"],
-                "instructions": "You are a professional real-time translator. Translate speech from ${config.sourceLanguage.displayName} to ${config.targetLanguage.displayName}. Provide clear, natural translations that maintain the tone and meaning of the original speech. Respond only with the translation.",
+                "instructions": "$instructions",
                 "voice": "${config.voiceStyle.openAiVoice}",
                 "input_audio_format": "pcm16",
                 "output_audio_format": "pcm16",
@@ -461,8 +503,8 @@ class OpenAIRealtimeClient(
                 },
                 "tools": [],
                 "tool_choice": "auto",
-                "temperature": 0.7,
-                "max_response_output_tokens": 4096
+                "temperature": ${config.temperature},
+                "max_response_output_tokens": ${config.maxTokens},
             }
         }
         """.trimIndent()
@@ -524,7 +566,8 @@ class OpenAIRealtimeClient(
             }
 
             // Verificar que tenemos suficiente audio (mínimo 150ms)
-            val requiredBytes = (16000 * 2 * MIN_AUDIO_BUFFER_MS) / 1000 // 16kHz, 16-bit, tiempo en ms
+            val requiredBytes =
+                (16000 * 2 * MIN_AUDIO_BUFFER_MS) / 1000 // 16kHz, 16-bit, tiempo en ms
 
             if (totalBufferSize < requiredBytes) {
                 log.d(tag = TAG) { "Buffer too small for commit: ${totalBufferSize} bytes, need at least ${requiredBytes}" }

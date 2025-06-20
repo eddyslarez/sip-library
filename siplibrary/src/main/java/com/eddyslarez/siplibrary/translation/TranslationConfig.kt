@@ -18,7 +18,16 @@ data class TranslationConfig(
     val enableDebugging: Boolean = false,
     val translationDelay: Int = 100, // ms delay before processing
     val maxAudioBufferSize: Int = 1024 * 1024, // 1MB
-    val useEphemeralKey: Boolean = true
+    val useEphemeralKey: Boolean = true,
+
+    val systemPrompt: String = "You are a professional real-time translator",
+    val temperature: Float = 0.7f,
+    val maxTokens: Int = 4096,
+    val topP: Float = 1.0f,
+    val frequencyPenalty: Float = 0.0f,
+    val presencePenalty: Float = 0.0f,
+    val stopSequences: List<String> = emptyList(),
+    val timeoutSeconds: Int = 30
 )
 
 enum class TranslationLanguage(val code: String, val displayName: String) {
