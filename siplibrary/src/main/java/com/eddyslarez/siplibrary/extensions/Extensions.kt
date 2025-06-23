@@ -10,18 +10,10 @@ import com.eddyslarez.siplibrary.error.SipError
 import com.eddyslarez.siplibrary.error.SipLibraryException
 import com.eddyslarez.siplibrary.events.SipEvent
 import com.eddyslarez.siplibrary.interfaces.SipEventListener
-import com.eddyslarez.siplibrary.translation.TranslationConfig
-import com.eddyslarez.siplibrary.translation.TranslationLanguage
-import com.eddyslarez.siplibrary.translation.TranslationManager
-import com.eddyslarez.siplibrary.translation.VoiceStyle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
-/**
- * Extensiones útiles para facilitar el uso de la biblioteca
- *
- * @author Eddys Larez
- */
+
 
 /**
  * Extensiones para facilitar el uso del EventBus desde cualquier parte
@@ -70,67 +62,9 @@ object SipEventBusExtensions {
         return GlobalEventBus.getEventFlowOfType(SipEvent.IncomingCall::class.java)
     }
 
-    /**
-     * Observa cambios de estado de traducción
-     */
-    fun observeTranslationStateChanges(): Flow<SipEvent.TranslationStateChanged> {
-        return GlobalEventBus.getEventFlowOfType(SipEvent.TranslationStateChanged::class.java)
-    }
 }
 
-/**
- * Extensiones para facilitar el uso de la traducción
- */
-object TranslationExtensions {
 
-    /**
-     * Inicializa la traducción con configuración simple
-     */
-    suspend fun initializeTranslation(
-        apiKey: String,
-        sourceLanguage: TranslationLanguage = TranslationLanguage.AUTO_DETECT,
-        targetLanguage: TranslationLanguage = TranslationLanguage.ENGLISH,
-        voiceStyle: VoiceStyle = VoiceStyle.ALLOY
-    ): Result<Unit> {
-        val config = TranslationConfig(
-            isEnabled = true,
-            openAiApiKey = apiKey,
-            sourceLanguage = sourceLanguage,
-            targetLanguage = targetLanguage,
-            voiceStyle = voiceStyle
-        )
-
-        return TranslationManager.getInstance().initialize(config)
-    }
-
-    /**
-     * Inicia traducción de manera simple
-     */
-    suspend fun startTranslation(): Result<Unit> {
-        return TranslationManager.getInstance().startTranslation()
-    }
-
-    /**
-     * Detiene traducción
-     */
-    suspend fun stopTranslation(): Result<Unit> {
-        return TranslationManager.getInstance().stopTranslation()
-    }
-
-    /**
-     * Verifica si la traducción está disponible
-     */
-    fun isTranslationAvailable(): Boolean {
-        return TranslationManager.getInstance().isTranslationAvailable()
-    }
-
-    /**
-     * Obtiene el estado actual de traducción
-     */
-    fun getTranslationState(): TranslationManager.TranslationState {
-        return TranslationManager.getInstance().getTranslationState()
-    }
-}
 
 /**
  * Extensiones para manejo de errores
@@ -235,7 +169,7 @@ object SipLibraryExtensions {
 class SipConfigBuilder {
     private var defaultDomain: String = ""
     private var webSocketUrl: String = ""
-    private var userAgent: String = "EddysSipLibrary/3.0.0"
+    private var userAgent: String = ""
     private var enableLogs: Boolean = true
     private var autoReconnect: Boolean = true
     private var customHeaders: Map<String, String> = emptyMap()
@@ -264,41 +198,4 @@ class SipConfigBuilder {
  */
 fun sipConfig(block: SipConfigBuilder.() -> Unit): EddysSipLibrary.SipConfig {
     return SipConfigBuilder().apply(block).build()
-}
-
-/**
- * DSL para configuración de traducción
- */
-class TranslationConfigBuilder {
-    private var isEnabled: Boolean = false
-    private var openAiApiKey: String = ""
-    private var sourceLanguage: TranslationLanguage = TranslationLanguage.AUTO_DETECT
-    private var targetLanguage: TranslationLanguage = TranslationLanguage.ENGLISH
-    private var voiceStyle: VoiceStyle = VoiceStyle.ALLOY
-    private var enableBidirectional: Boolean = true
-
-    fun enable(enabled: Boolean) { this.isEnabled = enabled }
-    fun apiKey(key: String) { this.openAiApiKey = key }
-    fun sourceLanguage(language: TranslationLanguage) { this.sourceLanguage = language }
-    fun targetLanguage(language: TranslationLanguage) { this.targetLanguage = language }
-    fun voiceStyle(voice: VoiceStyle) { this.voiceStyle = voice }
-    fun bidirectional(enable: Boolean) { this.enableBidirectional = enable }
-
-    fun build(): TranslationConfig {
-        return TranslationConfig(
-            isEnabled = isEnabled,
-            openAiApiKey = openAiApiKey,
-            sourceLanguage = sourceLanguage,
-            targetLanguage = targetLanguage,
-            voiceStyle = voiceStyle,
-            enableBidirectional = enableBidirectional
-        )
-    }
-}
-
-/**
- * Función DSL para crear configuración de traducción
- */
-fun translationConfig(block: TranslationConfigBuilder.() -> Unit): TranslationConfig {
-    return TranslationConfigBuilder().apply(block).build()
 }

@@ -15,15 +15,6 @@ Una biblioteca SIP/VoIP moderna y completa para Android con traducción en tiemp
 - ✅ **Push notifications** para llamadas cuando la app está en background
 - ✅ **Historial de llamadas** con estadísticas
 
-### Traducción en Tiempo Real 🌐
-- ✅ **OpenAI Realtime API** integrada
-- ✅ **30+ idiomas soportados**
-- ✅ **8 voces diferentes** (Alloy, Ash, Ballad, Coral, Echo, Sage, Shimmer, Verse)
-- ✅ **Traducción bidireccional** automática
-- ✅ **Inicialización independiente** - no requiere la instancia principal
-- ✅ **Detección automática de idioma**
-- ✅ **Calidad de audio optimizada**
-
 ### Sistema de Eventos Mejorado 📡
 - ✅ **EventBus global independiente** - agregar listeners desde cualquier parte
 - ✅ **30+ tipos de eventos** con type safety
@@ -42,14 +33,14 @@ Una biblioteca SIP/VoIP moderna y completa para Android con traducción en tiemp
 ### Gradle (Kotlin DSL)
 ```kotlin
 dependencies {
-    implementation("com.eddyslarez:siplibrary:3.0.0")
+    implementation("com.eddyslarez:siplibrary:x.x.x")
 }
 ```
 
 ### Gradle (Groovy)
 ```groovy
 dependencies {
-    implementation 'com.eddyslarez:siplibrary:3.0.0'
+    implementation 'com.eddyslarez:siplibrary:x.x.x'
 }
 ```
 
@@ -378,164 +369,7 @@ fun selectAudioDevice(device: AudioDevice) {
 }
 ```
 
-## 🌐 Traducción en Tiempo Real Independiente
 
-### Inicialización de Traducción (Independiente)
-
-```kotlin
-class TranslationService : Service() {
-
-    private lateinit var translationManager: TranslationManager
-
-    override fun onCreate() {
-        super.onCreate()
-
-        // Inicializar traducción de manera independiente
-        lifecycleScope.launch {
-            val result = TranslationExtensions.initializeTranslation(
-                apiKey = "your-openai-api-key",
-                sourceLanguage = TranslationLanguage.SPANISH,
-                targetLanguage = TranslationLanguage.ENGLISH,
-                voiceStyle = VoiceStyle.ALLOY
-            )
-
-            result.fold(
-                onSuccess = {
-                    Log.d("Translation", "Translation initialized successfully")
-                    setupTranslationListener()
-                },
-                onFailure = { error ->
-                    Log.e("Translation", "Translation init failed: ${error.message}")
-                }
-            )
-        }
-    }
-
-    private fun setupTranslationListener() {
-        lifecycleScope.launch {
-            // Observar eventos de traducción
-            SipEventBusExtensions.observeTranslationStateChanges()
-                .collect { event ->
-                    Log.d("Translation", "Translation state: active=${event.isActive}")
-
-                    if (event.isActive) {
-                        startTranslationIndicator()
-                    } else {
-                        stopTranslationIndicator()
-                    }
-                }
-        }
-    }
-}
-```
-
-### Configuración Avanzada de Traducción
-
-```kotlin
-class TranslationActivity : AppCompatActivity() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // Configuración avanzada con DSL
-        val translationConfig = translationConfig {
-            enable(true)
-            apiKey("your-openai-api-key")
-            sourceLanguage(TranslationLanguage.AUTO_DETECT)
-            targetLanguage(TranslationLanguage.FRENCH)
-            voiceStyle(VoiceStyle.CORAL)
-            bidirectional(true)
-        }
-
-        lifecycleScope.launch {
-            val result = TranslationManager.getInstance().initialize(translationConfig)
-
-            ErrorExtensions.handleSipResult(
-                result = result,
-                onSuccess = {
-                    setupTranslationControls()
-                },
-                onError = { error ->
-                    showTranslationError(error)
-                }
-            )
-        }
-    }
-
-    private fun setupTranslationControls() {
-        binding.btnStartTranslation.setOnClickListener {
-            lifecycleScope.launch {
-                TranslationExtensions.startTranslation()
-            }
-        }
-
-        binding.btnStopTranslation.setOnClickListener {
-            lifecycleScope.launch {
-                TranslationExtensions.stopTranslation()
-            }
-        }
-
-        // Cambiar idiomas dinámicamente
-        binding.spinnerSourceLang.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val selectedLanguage = getLanguageFromPosition(position)
-                val targetLanguage = getCurrentTargetLanguage()
-
-                lifecycleScope.launch {
-                    TranslationManager.getInstance().changeLanguages(selectedLanguage, targetLanguage)
-                }
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-    }
-}
-```
-
-### Usar Traducción Durante Llamadas
-
-```kotlin
-class CallWithTranslationActivity : AppCompatActivity() {
-
-    private val translationListener = object : SipEventListener {
-        override fun onCallConnected(callId: String, duration: Long) {
-            // Iniciar traducción automáticamente cuando se conecta la llamada
-            if (TranslationExtensions.isTranslationAvailable()) {
-                lifecycleScope.launch {
-                    TranslationExtensions.startTranslation()
-                }
-            }
-        }
-
-        override fun onCallDisconnected(callId: String, reason: EddysSipLibrary.CallEndReason, duration: Long) {
-            // Detener traducción cuando termina la llamada
-            lifecycleScope.launch {
-                TranslationExtensions.stopTranslation()
-            }
-        }
-
-        override fun onTranslationCompleted(originalText: String?, translatedText: String?) {
-            runOnUiThread {
-                showTranslationResult(originalText, translatedText)
-            }
-        }
-
-        override fun onTranslationError(error: TranslationError) {
-            runOnUiThread {
-                showTranslationError(error.getUserFriendlyMessage())
-            }
-        }
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        lifecycleScope.launch {
-            SipEventBusExtensions.addListener(translationListener)
-        }
-    }
-}
-```
 
 ## 🎯 DTMF (Tonos de Marcado)
 
@@ -1142,70 +976,6 @@ class FCMService : FirebaseMessagingService() {
 }
 ```
 
-### Grabación de Llamadas
-
-```kotlin
-class CallRecordingManager {
-
-    private var isRecording = false
-    private var mediaRecorder: MediaRecorder? = null
-
-    fun startRecording(callId: String): Result<String> {
-        return try {
-            if (isRecording) {
-                return Result.failure(SipLibraryException(
-                    "Recording already in progress",
-                    ErrorCodes.UNEXPECTED_ERROR,
-                    ErrorCategory.AUDIO
-                ))
-            }
-
-            val outputFile = createRecordingFile(callId)
-
-            mediaRecorder = MediaRecorder().apply {
-                setAudioSource(MediaRecorder.AudioSource.VOICE_CALL)
-                setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP)
-                setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB)
-                setOutputFile(outputFile.absolutePath)
-                prepare()
-                start()
-            }
-
-            isRecording = true
-            Result.success(outputFile.absolutePath)
-
-        } catch (e: Exception) {
-            Result.failure(SipLibraryException(
-                "Failed to start recording",
-                ErrorCodes.AUDIO_DEVICE_CHANGE_FAILED,
-                ErrorCategory.AUDIO,
-                e
-            ))
-        }
-    }
-
-    fun stopRecording(): Result<Unit> {
-        return try {
-            mediaRecorder?.apply {
-                stop()
-                release()
-            }
-            mediaRecorder = null
-            isRecording = false
-
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(SipLibraryException(
-                "Failed to stop recording",
-                ErrorCodes.AUDIO_DEVICE_CHANGE_FAILED,
-                ErrorCategory.AUDIO,
-                e
-            ))
-        }
-    }
-}
-```
-
 ## 📈 Performance y Optimización
 
 ### Optimización de Memoria
@@ -1412,8 +1182,6 @@ class SipDebugger {
 - [ ] Más idiomas de traducción
 
 ### v3.2.0
-- [ ] Conferencias múltiples
-- [ ] Grabación de llamadas mejorada
 - [ ] Analytics avanzados
 
 ### v4.0.0
@@ -1445,10 +1213,10 @@ Las contribuciones son bienvenidas. Por favor, lee las [guías de contribución]
 
 ## 📞 Soporte
 
-- **Email**: [eddys.larez@example.com](mailto:eddys.larez@example.com)
+- **Email**: [eddyslarez@gmail.com](mailto:eddys.larez@example.com)
 - **Documentation**: [https://docs.eddyslarez.com/siplibrary](https://docs.eddyslarez.com/siplibrary)
 - **Issues**: [GitHub Issues](https://github.com/eddyslarez/siplibrary/issues)
 
 ---
 
-**EddysSipLibrary v3.0.0** - La biblioteca SIP más completa y fácil de usar para Android con traducción en tiempo real integrada.
+**EddysSipLibrary v0.0.0** - La biblioteca SIP más completa y fácil de usar para Android.

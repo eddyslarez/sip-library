@@ -6,7 +6,6 @@ import com.eddyslarez.siplibrary.data.models.RegistrationState
 import com.eddyslarez.siplibrary.data.services.audio.AudioDevice
 import com.eddyslarez.siplibrary.error.SipError
 import com.eddyslarez.siplibrary.error.SipWarning
-import com.eddyslarez.siplibrary.translation.TranslationLanguage
 
 /**
  * Eventos del sistema SIP
@@ -61,9 +60,4 @@ sealed class SipEvent {
     // Eventos de errores
     data class Error(val error: SipError) : SipEvent()
     data class Warning(val warning: SipWarning) : SipEvent()
-
-    // Eventos de traducción - CORREGIDO para usar el TranslationError correcto
-    data class TranslationStateChanged(val isActive: Boolean, val sourceLanguage: TranslationLanguage?, val targetLanguage: TranslationLanguage?) : SipEvent()
-    data class TranslationError(val error: com.eddyslarez.siplibrary.translation.TranslationError) : SipEvent()
-    data class TranslationCompleted(val originalText: String?, val translatedText: String?) : SipEvent()
 }

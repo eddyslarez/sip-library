@@ -158,9 +158,6 @@ object GlobalEventBus {
                     is SipEvent.NetworkQuality -> listener.onNetworkQuality(event.quality)
                     is SipEvent.Error -> listener.onError(event.error)
                     is SipEvent.Warning -> listener.onWarning(event.warning)
-                    is SipEvent.TranslationStateChanged -> listener.onTranslationStateChanged(event.isActive, event.sourceLanguage, event.targetLanguage)
-                    is SipEvent.TranslationError -> listener.onTranslationError(event.error)
-                    is SipEvent.TranslationCompleted -> listener.onTranslationCompleted(event.originalText, event.translatedText)
                 }
             } catch (e: Exception) {
                 log.e(tag = TAG) { "Error dispatching event to listener: ${e.message}" }

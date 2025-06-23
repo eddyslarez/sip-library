@@ -20,14 +20,7 @@ src/main/java/com/eddyslarez/siplibrary/
 ├── 📁 error/                         # Sistema de errores
 │   └── ErrorHandling.kt              # Manejo avanzado de errores
 │
-├── 📁 translation/                   # Módulo de traducción independiente
-│   ├── TranslationManager.kt         # Gestor principal de traducción
-│   ├── TranslationConfig.kt          # Configuración de traducción
-│   ├── AudioTranslationProcessor.kt  # Procesador de audio
-│   ├── OpenAIRealtimeClient.kt       # Cliente OpenAI
-│   └── TranslationEventListener.kt   # Eventos específicos de traducción
-│
-├── 📁 extensions/                    # Extensiones y helpers
+│├── 📁 extensions/                    # Extensiones y helpers
 │   └── Extensions.kt                 # DSL y extensiones útiles
 │
 ├── 📁 data/                          # Modelos de datos
@@ -83,17 +76,12 @@ src/main/java/com/eddyslarez/siplibrary/
 - **`SipEvent`**: Sealed class con todos los tipos de eventos
 - **`SipEventListener`**: Interface con métodos por defecto para escuchar eventos
 
-### 3. **Traducción Independiente**
-- **`TranslationManager`**: Singleton independiente que no requiere la biblioteca SIP
-- **`OpenAIRealtimeClient`**: Cliente para la API de OpenAI Realtime
-- **`AudioTranslationProcessor`**: Procesamiento de audio para traducción
-
-### 4. **Manejo de Errores**
+### 3. **Manejo de Errores**
 - **`SipError`**: Errores categorizados con mensajes user-friendly
 - **`TranslationError`**: Errores específicos de traducción
 - **`ErrorExtensions`**: Helpers para manejo consistente de errores
 
-### 5. **Extensiones y DSL**
+### 4. **Extensiones y DSL**
 - **`SipEventBusExtensions`**: Helpers para usar el EventBus fácilmente
 - **`TranslationExtensions`**: Helpers para traducción independiente
 - **`sipConfig { }`**: DSL para configuración fácil
@@ -109,10 +97,7 @@ graph TD
     E --> F[Setup Audio Manager]
     F --> G[Setup Event Listeners]
     G --> H[Ready for SIP Operations]
-    
-    I[Translation Request] --> J[Initialize TranslationManager]
-    J --> K[Connect to OpenAI]
-    K --> L[Ready for Translation]
+   
 ```
 
 ## 🔄 Flujo de Eventos
@@ -126,7 +111,6 @@ graph LR
     D --> F[Listener 2]
     D --> G[Listener N]
     
-    H[Translation Operation] --> I[TranslationManager]
     I --> C
 ```
 
@@ -141,18 +125,11 @@ app/src/main/java/com/yourapp/
 │   ├── CallActivity.kt               # Activity para llamadas
 │   └── SipEventHandler.kt            # Manejo centralizado de eventos
 │
-├── 📁 translation/
-│   ├── TranslationService.kt         # Servicio independiente de traducción
-│   └── TranslationActivity.kt        # UI para traducción
-│
 ├── 📁 ui/
 │   ├── call/
-│   │   ├── CallScreen.kt             # Pantalla de llamada (Compose)
-│   │   └── CallViewModel.kt          # ViewModel para llamadas
-│   │
-│   └── translation/
-│       ├── TranslationScreen.kt      # Pantalla de traducción
-│       └── TranslationViewModel.kt   # ViewModel para traducción
+│       ├── CallScreen.kt             # Pantalla de llamada (Compose)
+│       └── CallViewModel.kt          # ViewModel para llamadas
+│  
 │
 └── MainActivity.kt
 ```
@@ -217,12 +194,6 @@ dependencies {
 - [ ] Agregar listener usando SipEventBusExtensions
 - [ ] Manejar eventos de llamadas entrantes/salientes
 - [ ] Implementar manejo de errores
-
-### ✅ **Traducción (Opcional)**
-- [ ] Obtener API key de OpenAI
-- [ ] Inicializar TranslationManager independientemente
-- [ ] Configurar idiomas de origen y destino
-- [ ] Manejar eventos de traducción
 
 ### ✅ **UI Integration**
 - [ ] Crear ViewModels que observen estados reactivos

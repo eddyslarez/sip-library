@@ -136,13 +136,6 @@ class SipEventDispatcher {
         dispatchEvent { it.onNetworkQuality(quality) }
     }
 
-//    suspend fun onError(error: EddysSipLibrary.SipError) {
-//        dispatchEvent { it.onError(error) }
-//    }
-//
-//    suspend fun onWarning(warning: EddysSipLibrary.SipWarning) {
-//        dispatchEvent { it.onWarning(warning) }
-//    }
 
     private suspend fun dispatchEvent(event: (SipEventListener) -> Unit) {
         val currentListeners = listenersMutex.withLock { listeners.toSet() }

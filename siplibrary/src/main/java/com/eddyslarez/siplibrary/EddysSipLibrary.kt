@@ -1,14 +1,9 @@
 package com.eddyslarez.siplibrary
 
 import android.app.Application
-import android.content.Context
 import com.eddyslarez.siplibrary.core.GlobalEventBus
 import com.eddyslarez.siplibrary.core.RingtoneConfig
 import com.eddyslarez.siplibrary.core.SipCoreManager
-import com.eddyslarez.siplibrary.core.SipEventDispatcher
-import com.eddyslarez.siplibrary.data.models.CallDirections
-import com.eddyslarez.siplibrary.data.models.CallHistoryManager.CallStatistics
-import com.eddyslarez.siplibrary.data.models.CallLog
 import com.eddyslarez.siplibrary.data.models.CallState
 import com.eddyslarez.siplibrary.data.models.RegistrationState
 import com.eddyslarez.siplibrary.data.services.audio.AudioDevice
@@ -17,15 +12,10 @@ import com.eddyslarez.siplibrary.error.ErrorCodes
 import com.eddyslarez.siplibrary.error.SipError
 import com.eddyslarez.siplibrary.error.SipLibraryException
 import com.eddyslarez.siplibrary.events.SipEvent
-import com.eddyslarez.siplibrary.interfaces.SipEventListener
 import com.eddyslarez.siplibrary.utils.StateManager
 import com.eddyslarez.siplibrary.utils.log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
+
 
 /**
  * EddysSipLibrary - Biblioteca SIP/VoIP optimizada para Android
